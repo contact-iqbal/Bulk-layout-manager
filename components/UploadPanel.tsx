@@ -2,7 +2,8 @@
 
 interface UploadPanelProps {
   onUpload: (files: FileList) => void;
-  onPrint: () => void;
+  onPrint?: () => void;
+  isExporting?: boolean;
   cardCount: number;
   history: {
     past: string[];
@@ -15,6 +16,7 @@ interface UploadPanelProps {
 export default function UploadPanel({
   onUpload,
   onPrint,
+  isExporting,
   cardCount,
   history,
 }: UploadPanelProps) {
@@ -42,12 +44,19 @@ export default function UploadPanel({
           Drop Images Here
         </p>
       </div>
-      <button
-        onClick={onPrint}
-        className="w-full bg-orange-500 hover:bg-orange-600 text-white font-black py-4 rounded-md transition uppercase tracking-widest text-xs"
-      >
-        Cetak
-      </button>
+      {onPrint && (
+        <button
+          onClick={onPrint}
+          disabled={isExporting}
+          className={`w-full font-black py-4 rounded-md transition uppercase tracking-widest text-xs ${
+            isExporting
+              ? "bg-gray-400 cursor-not-allowed"
+              : "bg-orange-500 hover:bg-orange-600 text-white"
+          }`}
+        >
+          {isExporting ? "Memproses PDF..." : "Cetak"}
+        </button>
+      )}
       <div className="text-center space-y-2">
         <p className="text-xs font-black text-gray-800">
           {cardCount}{" "}
@@ -61,7 +70,7 @@ export default function UploadPanel({
       <div className="mt-6 w-full border-t border-gray-100 pt-4 px-2">
         <div className="bg-white border border-gray-200 rounded-md overflow-hidden">
           {/* Header Panel - Opsional jika ingin ada judul di dalam panel */}
-          <div className="px-4 py-3 border-b border-gray-100 bg-gray-50/30 flex items-center justify-between">
+          <div className="px-4 py-3 border-b border-gray-100 bg-[hsl(0,0%,99%)] flex items-center justify-between">
             <h3 className="text-[10px] font-black uppercase tracking-widest text-gray-500">
               Action History
             </h3>

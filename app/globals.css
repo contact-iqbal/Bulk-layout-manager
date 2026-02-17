@@ -116,6 +116,51 @@
       height: 0;
     }
   }
+
+  /* 
+    COMPATIBILITY FIX: Override Tailwind v4 oklch colors with HSL 
+    for html2pdf.js (html2canvas) compatibility.
+  */
+  --color-gray-50: hsl(0, 0%, 98%);
+  --color-gray-100: hsl(0, 0%, 96.1%);
+  --color-gray-200: hsl(0, 0%, 89.8%);
+  --color-gray-300: hsl(0, 0%, 82.7%);
+  --color-gray-400: hsl(0, 0%, 63.9%);
+  --color-gray-500: hsl(0, 0%, 45.1%);
+  --color-gray-600: hsl(0, 0%, 32.2%);
+  --color-gray-700: hsl(0, 0%, 25.1%);
+  --color-gray-800: hsl(0, 0%, 14.9%);
+  --color-gray-900: hsl(0, 0%, 9%);
+  --color-gray-950: hsl(0, 0%, 3.9%);
+
+  --color-neutral-50: hsl(0, 0%, 98%);
+  --color-neutral-100: hsl(0, 0%, 96.1%);
+  --color-neutral-200: hsl(0, 0%, 89.8%);
+  --color-neutral-300: hsl(0, 0%, 82.7%);
+  --color-neutral-400: hsl(0, 0%, 63.9%);
+  --color-neutral-500: hsl(0, 0%, 45.1%);
+  --color-neutral-600: hsl(0, 0%, 32.2%);
+  --color-neutral-700: hsl(0, 0%, 25.1%);
+  --color-neutral-800: hsl(0, 0%, 14.9%);
+  --color-neutral-900: hsl(0, 0%, 9%);
+  --color-neutral-950: hsl(0, 0%, 3.9%);
+
+  --color-orange-50: hsl(33, 100%, 96.5%);
+  --color-orange-100: hsl(34, 100%, 91.8%);
+  --color-orange-200: hsl(31, 100%, 81%);
+  --color-orange-300: hsl(28, 100%, 66.1%);
+  --color-orange-400: hsl(24, 100%, 53.7%);
+  --color-orange-500: hsl(20, 100%, 50%);
+  --color-orange-600: hsl(15, 100%, 45%);
+  --color-orange-700: hsl(12, 100%, 35%);
+  --color-orange-800: hsl(13, 93%, 28%);
+  --color-orange-900: hsl(13, 85%, 23%);
+  --color-orange-950: hsl(11, 88%, 12%);
+
+  --color-red-500: hsl(0, 84%, 60%);
+  --color-blue-500: hsl(217, 91%, 60%);
+  --color-black: hsl(0, 0%, 0%);
+  --color-white: hsl(0, 0%, 100%);
 }
 
 /*
@@ -186,18 +231,20 @@
 
   /* Force cards to separate onto new pages */
   .print-page {
-    display: block !important;
-    width: 100% !important;
-    max-width: 100% !important;
+    display: flex !important;
+    flex-direction: column !important;
+    width: var(--print-width, 210mm) !important;
+    height: var(--print-height, 297mm) !important;
+    max-width: none !important;
+    max-height: none !important;
     page-break-after: always !important;
     break-after: page !important;
     page-break-inside: avoid !important;
     break-inside: avoid !important;
-    margin-bottom: 2cm !important;
-    border: none !important;
-    box-shadow: none !important;
-    padding: 0 !important;
+    margin: 0 !important;
+    padding: 1.5cm !important;
     position: relative !important;
+    box-sizing: border-box !important;
   }
 
   /* Ensure background colors and images are printed */
@@ -211,4 +258,37 @@
   .print-page .flex {
     display: flex !important;
   }
+
+  /* Hide specific elements during export */
+  .no-print {
+    display: none !important;
+  }
+}
+
+/* Screen Preview Styling */
+.print-page {
+  transition: all 0.3s ease;
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.05);
+  border-radius: 4px;
+  width: var(--print-width, 210mm);
+  height: var(--print-height, 297mm);
+  overflow: visible;
+  margin-bottom: 2rem;
+}
+
+.thin-scrollbar::-webkit-scrollbar {
+  width: 4px;
+}
+
+.thin-scrollbar::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.thin-scrollbar::-webkit-scrollbar-thumb {
+  background: #e2e8f0;
+  border-radius: 10px;
+}
+
+.thin-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: #cbd5e1;
 }

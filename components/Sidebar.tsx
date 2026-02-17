@@ -2,16 +2,26 @@
 
 import Image from "next/image";
 
-type PanelMode = "upload" | "settings" | null;
+type LeftPanelMode = "upload" | "settings" | null;
 
 interface SidebarProps {
-  activePanel: PanelMode;
-  setActivePanel: (mode: PanelMode) => void;
+  activeLeftPanel: LeftPanelMode;
+  setActiveLeftPanel: (mode: LeftPanelMode) => void;
+  isMapsOpen: boolean;
+  toggleMaps: () => void;
   onPrint: () => void;
-  children?: React.ReactNode; // Pass panels as children
+  isExporting?: boolean;
+  children?: React.ReactNode;
 }
 
-export function MiniSidebar({ activePanel, setActivePanel }: SidebarProps) {
+export function MiniSidebar({
+  activeLeftPanel,
+  setActiveLeftPanel,
+  isMapsOpen,
+  toggleMaps,
+  onPrint,
+  isExporting,
+}: SidebarProps) {
   return (
     <div className="no-print w-16 bg-white border-r border-gray-200 flex flex-col items-center py-6 z-60 shrink-0">
       <div className="mb-8 font-black text-orange-500 text-xl italic tracking-tighter cursor-default">
@@ -19,8 +29,10 @@ export function MiniSidebar({ activePanel, setActivePanel }: SidebarProps) {
       </div>
 
       <button
-        onClick={() => setActivePanel("upload")}
-        className={`p-3 mb-4 rounded-xl transition ${activePanel === "upload" ? "text-orange-600 bg-orange-50" : "text-gray-400 hover:text-orange-600"}`}
+        onClick={() =>
+          setActiveLeftPanel(activeLeftPanel === "upload" ? null : "upload")
+        }
+        className={`p-3 mb-4 rounded-xl transition ${activeLeftPanel === "upload" ? "text-orange-600 bg-orange-50" : "text-gray-400 hover:text-orange-600"}`}
         title="Upload"
       >
         <svg
@@ -39,8 +51,10 @@ export function MiniSidebar({ activePanel, setActivePanel }: SidebarProps) {
       </button>
 
       <button
-        onClick={() => setActivePanel("settings")}
-        className={`p-3 mb-4 rounded-xl transition ${activePanel === "settings" ? "text-orange-600 bg-orange-50" : "text-gray-400 hover:text-orange-600"}`}
+        onClick={() =>
+          setActiveLeftPanel(activeLeftPanel === "settings" ? null : "settings")
+        }
+        className={`p-3 mb-4 rounded-xl transition ${activeLeftPanel === "settings" ? "text-orange-600 bg-orange-50" : "text-gray-400 hover:text-orange-600"}`}
         title="Settings"
       >
         <svg
@@ -57,6 +71,28 @@ export function MiniSidebar({ activePanel, setActivePanel }: SidebarProps) {
           ></path>
         </svg>
       </button>
+
+      <button
+        onClick={toggleMaps}
+        className={`p-3 mb-4 rounded-xl transition ${isMapsOpen ? "text-orange-600 bg-orange-50" : "text-gray-400 hover:text-orange-600"}`}
+        title="Maps"
+      >
+        <svg
+          className="w-6 h-6"
+          fill="none"
+          stroke="currentColor"
+          viewBox="0 0 24 24"
+        >
+          <path
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            strokeWidth="2"
+            d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7"
+          ></path>
+        </svg>
+      </button>
+
+      <div className="flex-1"></div>
     </div>
   );
 }
@@ -65,7 +101,7 @@ export function MainSidebar({
   activePanel,
   children,
 }: {
-  activePanel: PanelMode;
+  activePanel: LeftPanelMode;
   children: React.ReactNode;
 }) {
   // If no panel is active, we might hide the sidebar? Or just show the active one.

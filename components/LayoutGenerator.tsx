@@ -1,9 +1,10 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { MiniSidebar, MainSidebar } from "@/components/Sidebar";
 import UploadPanel from "@/components/UploadPanel";
 import SettingsPanel from "@/components/SettingsPanel";
+import MapsPanel from "@/components/MapsPanel";
 import LayoutCard from "@/components/LayoutCard";
 import {
   saveCardToDB,
@@ -16,23 +17,46 @@ import {
 
 import useHistory from "@/hooks/useHistory";
 
-interface LayoutGeneratorProps {
-  tabId: string;
+interface Settings {
+  addr1: string;
+  addr2: string;
+  telp: string;
+  email: string;
+  paperSize: "a4" | "f4";
 }
 
-export default function LayoutGenerator({ tabId }: LayoutGeneratorProps) {
-  const [activePanel, setActivePanel] = useState<"upload" | "settings" | null>(
-    "upload",
-  );
+interface LayoutGeneratorProps {
+  tabId: string;
+  tabTitle?: string;
+  onSettingsChange?: (settings: Settings) => void;
+}
+
+export default function LayoutGenerator({
+  tabId,
+  tabTitle = "Layout",
+  onSettingsChange,
+}: LayoutGeneratorProps) {
+  const [activeLeftPanel, setActiveLeftPanel] = useState<
+    "upload" | "settings" | null
+  >("upload");
+  const [isMapsOpen, setIsMapsOpen] = useState(false);
   const [hasLoaded, setHasLoaded] = useState(false);
+  const contentRef = useRef<HTMLDivElement>(null);
+  const [isExporting, setIsExporting] = useState(false);
 
   // Settings State
-  const [settings, setSettings] = useState({
+  const [settings, setSettings] = useState<Settings>({
     addr1: "Gedung Graha Pena Suite 1503",
     addr2: "Jl. Ahmad Yani 88 - Surabaya",
     telp: "0811-301-8005",
     email: "marketing@iklann.id",
+    paperSize: "a4",
   });
+
+  // Notify parent when settings change
+  useEffect(() => {
+    onSettingsChange?.(settings);
+  }, [settings, onSettingsChange]);
 
   // History State
   const {
@@ -46,133 +70,53 @@ export default function LayoutGenerator({ tabId }: LayoutGeneratorProps) {
     history: historyData,
   } = useHistory<CardData[]>([]);
 
-  // 1. Load Settings on Mount
-  useEffect(() => {
-    const savedSettings = {
-      addr1: localStorage.getItem("settings_addr1") || settings.addr1,
-      addr2: localStorage.getItem("settings_addr2") || settings.addr2,
-      telp: localStorage.getItem("settings_telp") || settings.telp,
-      email: localStorage.getItem("settings_email") || settings.email,
-    };
-    setSettings(savedSettings);
-    setHasLoaded(false);
+  // --- Handlers ---
 
-    const fetchData = async () => {
-      try {
-        const loadedCards = await getAllCards(tabId);
-        const savedHistory = await getHistoryFromDB(tabId);
+  // PDF Export Handler
+  const handleDownloadPDF = async () => {
+    if (!contentRef.current) return;
+    setIsExporting(true);
 
-        if (savedHistory) {
-          // If we have saved history, use it. Present state should match current DB cards?
-          // Actually, 'present' in useHistory is just the current state.
-          // If cards in DB were synced with history, then loadedCards is the 'present'.
-          reset(savedHistory.past, loadedCards, savedHistory.future);
-        } else {
-          // Fallback for legacy data without history
-          reset([], loadedCards, []);
-        }
-        setHasLoaded(true);
-      } catch (error) {
-        console.error("Failed to load data:", error);
-      }
-    };
-    fetchData();
-  }, [tabId, reset]);
+    const element = contentRef.current.querySelector(
+      "#cards-container",
+    ) as HTMLElement;
+    if (!element) {
+      setIsExporting(false);
+      return;
+    }
 
-  // Sync with DB whenever cards change (from undo/redo/set)
-  // Optimization: This might be heavy if we delete/rewrite all.
-  // Ideally we should sync diffs. But given the prompt "undo/redo logs actions",
-  // simply ensuring DB matches UI state is the goal for persistence.
-  // Note: This effect runs on every history change.
-  useEffect(() => {
-    // We need to be careful not to create infinite loops or excessive DB writes.
-    // Also, we need to handle that `cards` in DB might need to be synced.
-    // Strategy: When `cards` changes, we essentially want the DB to reflect this list for this tabId.
-    // A simple way is to delete all for this tab and re-add. (Inefficient but robust for small counts).
-    // Better way for this specific app:
-    // The previous implementation updated DB individually.
-    // Now state is source of truth.
-    // Let's implement a bulk sync or just per-action update wrapped in setCards.
-    // Actually, `useHistory` manages state. When we `undo`, `cards` reverts.
-    // We should probably sync the *result* to DB.
-
-    // However, since `setCards` in `handleUpload` etc previously did `saveCardToDB`,
-    // now we must do it inversely: Effect observes `cards` and ensures DB matches.
-
-    const syncCards = async () => {
-      if (!hasLoaded) return;
-      const dbCards = await getAllCards(tabId);
-      const currentIds = new Set(cards.map((c) => c.id));
-
-      // Delete removed
-      for (const c of dbCards) {
-        if (!currentIds.has(c.id)) {
-          await deleteCardFromDB(c.id);
-        }
-      }
-      // Add/Update existing
-      for (const c of cards) {
-        await saveCardToDB(c);
-      }
-    };
-    syncCards();
-  }, [cards, tabId, hasLoaded]);
-
-  // Sync History to DB
-  useEffect(() => {
-    if (!hasLoaded) return;
-    saveHistoryToDB(tabId, historyData.past, historyData.future);
-  }, [historyData.past, historyData.future, tabId, hasLoaded]);
-
-  // Global Undo/Redo Events
-  useEffect(() => {
-    const handleUndo = () => {
-      // Only undo if this tab is visible?
-      // Actually the event is global. If we have multiple tabs, all might undo.
-      // We should check visibility.
-      // For MVP, checking if the tab container is visible is hard from here without ref.
-      // But `LayoutGenerator` is mounted/unmounted or hidden?
-      // In `TabSystem`, we use `display: none`. So component is mounted.
-      // We need to know if we are active.
-      // Let's rely on the fact that only one is visible.
-      // But we don't have `isActive` prop.
-      // Let's assume the user wants undo on the active tab.
-      // We can pass `isActive` prop or check visibility.
-      // PRO TIP: Check `document.visibilityState` or if element is visible.
-      // A simple check: `offsetParent !== null`.
-      const el = document.getElementById(`layout-generator-${tabId}`);
-      if (el && el.offsetParent !== null) {
-        undo();
-      }
-    };
-    const handleRedo = () => {
-      const el = document.getElementById(`layout-generator-${tabId}`);
-      if (el && el.offsetParent !== null) {
-        redo();
-      }
+    const opt = {
+      margin: [0, 0, 0, 0] as [number, number, number, number],
+      filename: `${tabTitle.replace(/[^a-z0-9]/gi, "_").toLowerCase()}.pdf`,
+      image: { type: "jpeg", quality: 0.98 },
+      html2canvas: {
+        scale: 2,
+        useCORS: true,
+        logging: true,
+        ignoreElements: (el: Element) => el.tagName === "IFRAME",
+      },
+      jsPDF: {
+        unit: "mm",
+        format: settings.paperSize === "f4" ? [215, 330] : "a4",
+        orientation: "portrait",
+        compress: true,
+      },
+      pagebreak: { mode: ["css", "legacy"] },
     };
 
-    window.addEventListener("undo-action", handleUndo);
-    window.addEventListener("redo-action", handleRedo);
-
-    return () => {
-      window.removeEventListener("undo-action", handleUndo);
-      window.removeEventListener("redo-action", handleRedo);
-    };
-  }, [undo, redo, tabId]);
-
-  // Update Settings Wrapper
-  const updateSetting = (key: keyof typeof settings, value: string) => {
-    const newSettings = { ...settings, [key]: value };
-    setSettings(newSettings);
-    localStorage.setItem("settings_" + key, value);
+    try {
+      const html2pdf = (await import("html2pdf.js")).default;
+      await (html2pdf() as any).from(element).set(opt).save();
+    } catch (error) {
+      console.error("PDF Export failed:", error);
+    } finally {
+      setIsExporting(false);
+    }
   };
 
   // Upload Handler
   const handleUpload = async (files: FileList) => {
     const fileArray = Array.from(files);
-
-    // Create promises for all file reads
     const cardPromises = fileArray.map((file) => {
       return new Promise<CardData>((resolve, reject) => {
         const reader = new FileReader();
@@ -181,7 +125,6 @@ export default function LayoutGenerator({ tabId }: LayoutGeneratorProps) {
             reject(new Error("Failed to read file"));
             return;
           }
-
           const newCard: CardData = {
             id:
               "card_" +
@@ -212,7 +155,7 @@ export default function LayoutGenerator({ tabId }: LayoutGeneratorProps) {
     }
   };
 
-  // Update Card Handler
+  // Card Operations
   const updateCard = async (id: string, key: keyof CardData, value: string) => {
     const updatedCards = cards.map((card) => {
       if (card.id === id) {
@@ -221,35 +164,148 @@ export default function LayoutGenerator({ tabId }: LayoutGeneratorProps) {
       return card;
     });
     setCards(updatedCards, `Update ${key}`);
-    // DB sync handled by effect
   };
 
-  // Delete Card Handler
   const deleteCard = async (id: string) => {
-    // await deleteCardFromDB(id); // Handled by effect
     setCards(
       cards.filter((c) => c.id !== id),
       "Delete Card",
     );
   };
 
+  const copyCard = (id: string) => {
+    const cardIndex = cards.findIndex((c) => c.id === id);
+    if (cardIndex === -1) return;
+    const cardToCopy = cards[cardIndex];
+    const newCard: CardData = {
+      ...cardToCopy,
+      id: "card_" + Date.now() + "_" + Math.random().toString(36).substr(2, 9),
+      timestamp: Date.now(),
+    };
+    const newCards = [...cards];
+    newCards.splice(cardIndex + 1, 0, newCard);
+    setCards(newCards, "Duplicate Card");
+  };
+
+  const moveDownCard = (id: string) => {
+    const cardIndex = cards.findIndex((c) => c.id === id);
+    if (cardIndex === -1 || cardIndex === cards.length - 1) return;
+    const newCards = [...cards];
+    const [movedCard] = newCards.splice(cardIndex, 1);
+    newCards.splice(cardIndex + 1, 0, movedCard);
+    setCards(newCards, "Move Card Down");
+  };
+
+  // Update Settings Wrapper
+  const updateSetting = (key: keyof typeof settings, value: string) => {
+    setSettings((prev) => ({ ...prev, [key]: value }));
+    localStorage.setItem("settings_" + key, value);
+  };
+
+  // --- Effects ---
+
+  // 1. Load Settings and Data on Mount
+  useEffect(() => {
+    const savedSettings = {
+      addr1: localStorage.getItem("settings_addr1") || settings.addr1,
+      addr2: localStorage.getItem("settings_addr2") || settings.addr2,
+      telp: localStorage.getItem("settings_telp") || settings.telp,
+      email: localStorage.getItem("settings_email") || settings.email,
+      paperSize:
+        (localStorage.getItem("settings_paperSize") as any) ||
+        settings.paperSize,
+    };
+    setSettings(savedSettings);
+    setHasLoaded(false);
+
+    const fetchData = async () => {
+      try {
+        const loadedCards = await getAllCards(tabId);
+        const savedHistory = await getHistoryFromDB(tabId);
+        if (savedHistory) {
+          reset(savedHistory.past, loadedCards, savedHistory.future);
+        } else {
+          reset([], loadedCards, []);
+        }
+        setHasLoaded(true);
+      } catch (error) {
+        console.error("Failed to load data:", error);
+      }
+    };
+    fetchData();
+  }, [tabId, reset]);
+
+  // 2. Sync with DB
+  useEffect(() => {
+    const syncCards = async () => {
+      if (!hasLoaded) return;
+      const dbCards = await getAllCards(tabId);
+      const currentIds = new Set(cards.map((c) => c.id));
+      for (const c of dbCards) {
+        if (!currentIds.has(c.id)) await deleteCardFromDB(c.id);
+      }
+      for (const c of cards) await saveCardToDB(c);
+    };
+    syncCards();
+  }, [cards, tabId, hasLoaded]);
+
+  // 3. Sync History to DB
+  useEffect(() => {
+    if (!hasLoaded) return;
+    saveHistoryToDB(tabId, historyData.past, historyData.future);
+  }, [historyData.past, historyData.future, tabId, hasLoaded]);
+
+  // 4. Global Events (Undo, Redo, Print)
+  useEffect(() => {
+    const handleUndo = () => {
+      const el = document.getElementById(`layout-generator-${tabId}`);
+      if (el && el.offsetParent !== null) undo();
+    };
+    const handleRedo = () => {
+      const el = document.getElementById(`layout-generator-${tabId}`);
+      if (el && el.offsetParent !== null) redo();
+    };
+    const handlePrint = () => {
+      const el = document.getElementById(`layout-generator-${tabId}`);
+      if (el && el.offsetParent !== null) handleDownloadPDF();
+    };
+
+    window.addEventListener("undo-action", handleUndo);
+    window.addEventListener("redo-action", handleRedo);
+    window.addEventListener("print-action", handlePrint);
+
+    return () => {
+      window.removeEventListener("undo-action", handleUndo);
+      window.removeEventListener("redo-action", handleRedo);
+      window.removeEventListener("print-action", handlePrint);
+    };
+  }, [undo, redo, tabId, handleDownloadPDF]);
+
   return (
     <div
       id={`layout-generator-${tabId}`}
       className="flex h-full w-full bg-white relative"
+      style={
+        {
+          "--print-width": settings.paperSize === "f4" ? "215mm" : "210mm",
+          "--print-height": settings.paperSize === "f4" ? "330mm" : "297mm",
+        } as React.CSSProperties
+      }
     >
       <MiniSidebar
-        activePanel={activePanel}
-        setActivePanel={setActivePanel}
-        onPrint={() => window.print()}
+        activeLeftPanel={activeLeftPanel}
+        setActiveLeftPanel={setActiveLeftPanel}
+        isMapsOpen={isMapsOpen}
+        toggleMaps={() => setIsMapsOpen(!isMapsOpen)}
+        onPrint={handleDownloadPDF}
+        isExporting={isExporting}
       />
 
-      {activePanel && (
-        <MainSidebar activePanel={activePanel}>
-          {activePanel === "upload" && (
+      {activeLeftPanel && (
+        <MainSidebar activePanel={activeLeftPanel as any}>
+          {activeLeftPanel === "upload" && (
             <UploadPanel
               onUpload={handleUpload}
-              onPrint={() => window.print()}
               cardCount={cards.length}
               history={{
                 past: historyData.past.map((h) => h.action),
@@ -259,7 +315,7 @@ export default function LayoutGenerator({ tabId }: LayoutGeneratorProps) {
               }}
             />
           )}
-          {activePanel === "settings" && (
+          {activeLeftPanel === "settings" && (
             <SettingsPanel settings={settings} setSettings={updateSetting} />
           )}
         </MainSidebar>
@@ -267,7 +323,8 @@ export default function LayoutGenerator({ tabId }: LayoutGeneratorProps) {
 
       <div
         id="main-content"
-        className="flex-1 overflow-y-auto p-8 flex flex-col items-center bg-gray-100 h-full"
+        ref={contentRef}
+        className="flex-1 overflow-y-auto px-20 py-10 flex flex-col items-center bg-gray-100 h-full"
       >
         {cards.length === 0 ? (
           <div className="text-center text-gray-400 mt-20">
@@ -291,18 +348,28 @@ export default function LayoutGenerator({ tabId }: LayoutGeneratorProps) {
             id="cards-container"
             className="flex flex-col gap-8 w-full max-w-5xl"
           >
-            {cards.map((card) => (
+            {cards.map((card, index) => (
               <LayoutCard
                 key={card.id}
                 data={card}
                 settings={settings}
                 onUpdate={updateCard}
                 onDelete={deleteCard}
+                onCopy={copyCard}
+                onMoveDown={moveDownCard}
+                isLast={index === cards.length - 1}
+                paperSize={settings.paperSize}
               />
             ))}
           </div>
         )}
       </div>
+
+      {isMapsOpen && (
+        <div className="no-print w-[350px] bg-white border-l border-gray-200 p-6 z-50 shrink-0 h-full overflow-y-auto">
+          <MapsPanel tabId={tabId} />
+        </div>
+      )}
     </div>
   );
 }

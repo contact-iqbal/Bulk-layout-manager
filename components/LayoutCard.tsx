@@ -2,6 +2,7 @@
 
 import { CardData } from "@/app/lib/db";
 import Swal from "sweetalert2";
+import { useState, useRef, useEffect } from "react";
 
 interface Settings {
   addr1: string;
@@ -15,6 +16,10 @@ interface LayoutCardProps {
   settings: Settings;
   onUpdate: (id: string, key: keyof CardData, value: string) => void;
   onDelete: (id: string) => void;
+  onCopy: (id: string) => void;
+  onMoveDown: (id: string) => void;
+  isLast: boolean;
+  paperSize?: "a4" | "f4";
 }
 
 export default function LayoutCard({
@@ -22,36 +27,98 @@ export default function LayoutCard({
   settings,
   onUpdate,
   onDelete,
+  onCopy,
+  onMoveDown,
+  isLast,
+  paperSize,
 }: LayoutCardProps) {
+  const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const menuRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
+        setIsMenuOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
   // Embed URL logic
   // Safe embed with query
   const mapUrl = `https://www.google.com/maps?q=${data.coords}&z=16&output=embed`;
 
   return (
-    <div className="print-page bg-white relative group-card group p-8">
-      <button
-        onClick={() => {
-          Swal.fire({
-            title: "Hapus layout ini?",
-            text: "Data yang dihapus tidak dapat dikembalikan!",
-            icon: "warning",
-            showCancelButton: true,
-            confirmButtonColor: "#d33",
-            cancelButtonColor: "#3085d6",
-            confirmButtonText: "Ya, Hapus!",
-            cancelButtonText: "Batal",
-          }).then((result) => {
-            if (result.isConfirmed) {
-              onDelete(data.id);
-              Swal.fire("Terhapus!", "Layout berhasil dihapus.", "success");
-            }
-          });
-        }}
-        className="no-print absolute -right-4 top-0 rounded-md px-2 py-1 bg-white border-solid border-2 border-neutral-200 shadow-sm transition transform hover:scale-110 z-10"
-        title="Hapus"
+    <div className="print-page bg-white relative group-card group px-12 py-10 flex flex-col">
+      {/* Dropdown Menu */}
+      <div
+        ref={menuRef}
+        className="no-print absolute -right-12 top-0 z-50 flex flex-col items-center"
       >
-        <i className="fa-solid fa-trash text-red-500"></i>
-      </button>
+        <button
+          onClick={() => setIsMenuOpen(!isMenuOpen)}
+          className="rounded-md w-8 h-8 flex items-center justify-center bg-white border-2 border-neutral-200 shadow-sm transition hover:bg-neutral-50 hover:scale-110"
+          title="Menu"
+        >
+          <i className="fa-solid fa-ellipsis-vertical text-gray-500"></i>
+        </button>
+
+        {isMenuOpen && (
+          <div className="absolute top-10 right-0 bg-white border border-neutral-200 rounded-lg py-2">
+            <button
+              onClick={() => {
+                onCopy(data.id);
+                setIsMenuOpen(false);
+              }}
+              className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-blue-50 hover:text-blue-600 flex items-center gap-2 transition font-medium"
+            >
+              <i className="fa-solid fa-copy w-4"></i>
+            </button>
+            <button
+              onClick={() => {
+                onMoveDown(data.id);
+                setIsMenuOpen(false);
+              }}
+              disabled={isLast}
+              className={`w-full text-left px-4 py-2 text-sm flex items-center gap-2 transition font-medium ${
+                isLast
+                  ? "text-gray-300 cursor-not-allowed"
+                  : "text-gray-700 hover:bg-orange-50 hover:text-orange-600"
+              }`}
+            >
+              <i className="fa-solid fa-arrow-down w-4"></i>
+            </button>
+            <div className="my-1 border-t border-neutral-100"></div>
+            <button
+              onClick={() => {
+                setIsMenuOpen(false);
+                Swal.fire({
+                  title: "Hapus layout ini?",
+                  text: "Apakah anda yakin ingin menghapus layout ini?",
+                  icon: "warning",
+                  showCancelButton: true,
+                  confirmButtonColor: "#d33",
+                  cancelButtonColor: "#3085d6",
+                  confirmButtonText: "Ya, Hapus!",
+                  cancelButtonText: "Batal",
+                }).then((result) => {
+                  if (result.isConfirmed) {
+                    onDelete(data.id);
+                    Swal.fire(
+                      "Terhapus!",
+                      "Layout berhasil dihapus.",
+                      "success",
+                    );
+                  }
+                });
+              }}
+              className="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50 flex items-center gap-2 transition font-bold"
+            >
+              <i className="fa-solid fa-trash w-4"></i>
+            </button>
+          </div>
+        )}
+      </div>
 
       <div className="flex justify-between items-start mb-8">
         <img
@@ -59,14 +126,14 @@ export default function LayoutCard({
           className="w-40 h-24 object-cover rounded"
           alt="Logo"
         />
-        <div className="text-right font-black uppercase text-xl leading-none">
+        <div className="text-right font-black uppercase text-2xl leading-none">
           <span className="text-[#F36F21]">KLIK, BAYAR</span>
           <br />
           <span className="text-[#002D3E]">TAYANG</span>
         </div>
       </div>
 
-      <div className="flex gap-6 mb-8 h-[440px]">
+      <div className="flex gap-8 mb-10 flex-1 min-h-0">
         <div className="w-2/3 h-full relative">
           {/* Using standard img tag for blob/dataUrl usually better for local previews than next/image if optimization not needed */}
           <img
@@ -162,13 +229,13 @@ export default function LayoutCard({
           <div className="print-exact bg-[#F36F21] px-4 py-1 inline-block font-black uppercase text-xs absolute -top-4 left-6 shadow-md">
             Kontak Kami
           </div>
-          <div className="text-[10px] space-y-1 opacity-90 leading-relaxed">
-            <p className="font-black text-xs italic mb-1">{settings.addr1}</p>
-            <p>{settings.addr2}</p>
-            <p>
+          <div className="text-[12px] space-y-1.5 opacity-90 leading-relaxed">
+            <p className="font-black text-sm italic mb-1">{settings.addr1}</p>
+            <p className="font-bold">{settings.addr2}</p>
+            <p className="font-bold">
               Telp/WA: <span>{settings.telp}</span>
             </p>
-            <p>
+            <p className="font-bold">
               Email: <span>{settings.email}</span>
             </p>
           </div>

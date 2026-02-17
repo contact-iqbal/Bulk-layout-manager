@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import Navbar from "@/components/Navbar";
 import TabSystem from "@/components/TabSystem";
 import LayoutGenerator from "@/components/LayoutGenerator";
+import WelcomeModal from "@/components/WelcomeModal";
 import Cookies from "js-cookie";
 
 export default function Home() {
@@ -13,9 +14,24 @@ export default function Home() {
   >([]);
   const [activeTabId, setActiveTabId] = useState("");
   const [isLoaded, setIsLoaded] = useState(false);
+  const [tabSettings, setTabSettings] = useState<Record<string, { paperSize: "a4" | "f4" }>>({});
+  const [showWelcomeModal, setShowWelcomeModal] = useState(false);
+
+  const handleSettingsChange = (tabId: string, settings: any) => {
+    setTabSettings((prev) => ({
+      ...prev,
+      [tabId]: { paperSize: settings.paperSize },
+    }));
+  };
 
   // Load tabs from Cookies on mount
   useEffect(() => {
+    // Check if welcome modal has been seen
+    const hasSeenWelcome = localStorage.getItem("dlayout_welcome_seen_v1.0");
+    if (!hasSeenWelcome) {
+      setShowWelcomeModal(true);
+    }
+
     const savedTabs = Cookies.get("dlayout_tabs");
     const savedActiveTab = Cookies.get("dlayout_active_tab");
 
@@ -25,7 +41,13 @@ export default function Home() {
         // Reconstruct content component since it can't be JSON serialized
         const restoredTabs = parsedTabs.map((t: any) => ({
           ...t,
-          content: <LayoutGenerator tabId={t.id} />,
+          content: (
+            <LayoutGenerator
+              tabId={t.id}
+              tabTitle={t.title}
+              onSettingsChange={(s) => handleSettingsChange(t.id, s)}
+            />
+          ),
         }));
         setTabs(restoredTabs);
         setActiveTabId(savedActiveTab || restoredTabs[0]?.id || "");
@@ -45,7 +67,13 @@ export default function Home() {
       {
         id: defaultId,
         title: "Layout Generator",
-        content: <LayoutGenerator tabId={defaultId} />,
+        content: (
+          <LayoutGenerator
+            tabId={defaultId}
+            tabTitle="Layout Generator"
+            onSettingsChange={(s) => handleSettingsChange(defaultId, s)}
+          />
+        ),
         canClose: false,
       },
     ]);
@@ -68,10 +96,17 @@ export default function Home() {
 
   const handleNewTab = (type: string, title: string) => {
     const newId = `tab-${Date.now()}`;
+    const newTitle = `${title} ${tabs.length + 1}`;
     const newTab = {
       id: newId,
-      title: `${title} ${tabs.length + 1}`,
-      content: <LayoutGenerator tabId={newId} />,
+      title: newTitle,
+      content: (
+        <LayoutGenerator
+          tabId={newId}
+          tabTitle={newTitle}
+          onSettingsChange={(s) => handleSettingsChange(newId, s)}
+        />
+      ),
       canClose: true,
     };
     setTabs([...tabs, newTab]);
@@ -86,18 +121,46 @@ export default function Home() {
     }
   };
 
+  const updateTabContent = (id: string, title: string) => {
+    return (
+      <LayoutGenerator
+        tabId={id}
+        tabTitle={title}
+        onSettingsChange={(s) => handleSettingsChange(id, s)}
+      />
+    );
+  };
+
   const handleTabRename = (id: string, newTitle: string) => {
     const titleToUse =
       newTitle.trim() === ""
         ? `Layout Generator (${id ? id.replace("tab-", "") : ""})`
         : newTitle;
-    setTabs(tabs.map((t) => (t.id === id ? { ...t, title: titleToUse } : t)));
+    setTabs(
+      tabs.map((t) =>
+        t.id === id
+          ? {
+              ...t,
+              title: titleToUse,
+              content: updateTabContent(id, titleToUse),
+            }
+          : t,
+      ),
+    );
   };
 
   if (!isLoaded) return null; // or a loading spinner
 
   return (
     <div className="flex flex-col h-screen w-full">
+      <WelcomeModal 
+        isOpen={showWelcomeModal}
+        onClose={() => setShowWelcomeModal(false)}
+        onNewProject={() => {
+          initializeDefaultTab();
+          setShowWelcomeModal(false);
+        }}
+      />
       <Navbar
         onUpload={(files) => {
           // If active tab is LayoutGenerator, we might want to pass upload to it?
@@ -111,6 +174,8 @@ export default function Home() {
           );
         }}
         onNewTab={handleNewTab}
+        activeTabTitle={tabs.find((t) => t.id === activeTabId)?.title}
+        activePaperSize={tabSettings[activeTabId]?.paperSize || "a4"}
       />
       <TabSystem
         tabs={tabs}
