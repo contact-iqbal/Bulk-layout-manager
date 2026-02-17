@@ -133,30 +133,23 @@ export default function Navbar({ onUpload, onNewTab }: NavbarProps) {
                 className="absolute top-full left-0 bg-white border border-gray-200 shadow-lg rounded-md py-1 min-w-[200px] z-50"
                 onClick={(e) => e.stopPropagation()}
               >
-                {menu.items.map((item, idx) =>
-                  item.separator ? (
-                    <div
-                      key={idx}
-                      className="border-b border-gray-200 my-1"
-                    ></div>
-                  ) : (
-                    <button
-                      key={idx}
-                      className="w-full text-left px-4 py-1.5 hover:bg-blue-500 hover:text-white flex justify-between items-center group"
-                      onClick={() => {
-                        item.action?.();
-                        setActiveMenu(null);
-                      }}
-                    >
-                      <span className="opacity-90">{item.label}</span>
-                      {item.shortcut && (
-                        <span className="ml-4 opacity-50 text-[10px] group-hover:text-white group-hover:opacity-80">
-                          {item.shortcut}
-                        </span>
-                      )}
-                    </button>
-                  ),
-                )}
+                {menu.items.map((item, idx) => (
+                  <button
+                    key={idx}
+                    className="w-full text-left px-4 py-1.5 hover:bg-blue-500 hover:text-white flex justify-between items-center group"
+                    onClick={() => {
+                      item.action?.();
+                      setActiveMenu(null);
+                    }}
+                  >
+                    <span className="opacity-90">{item.label}</span>
+                    {item.shortcut && (
+                      <span className="ml-4 opacity-50 text-[10px] group-hover:text-white group-hover:opacity-80">
+                        {item.shortcut}
+                      </span>
+                    )}
+                  </button>
+                ))}
               </div>
             )}
           </div>
