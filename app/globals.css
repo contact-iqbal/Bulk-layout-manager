@@ -144,6 +144,24 @@
     size: auto;
   }
 
+  /* Reset all parent heights for printing */
+  html,
+  body,
+  #__next,
+  main,
+  .h-screen,
+  .h-full,
+  .flex-1,
+  .relative,
+  #main-content,
+  #cards-container {
+    height: auto !important;
+    min-height: initial !important;
+    overflow: visible !important;
+    position: static !important;
+    display: block !important;
+  }
+
   body {
     background: white;
     -webkit-print-color-adjust: exact;
@@ -154,25 +172,31 @@
   .no-print,
   nav,
   header,
-  aside {
+  aside,
+  .no-print-container,
+  [class*="TabSystem_tab_bar"] {
     display: none !important;
   }
 
-  /* Ensure main content takes full width */
-  #main-content {
-    width: 100% !important;
-    margin: 0 !important;
-    padding: 0 !important;
-    overflow: visible !important;
+  /* Specific selectors to hide based on component structure */
+  .TabSystem_tab_bar,
+  .Sidebar_mini,
+  .Sidebar_main,
+  button,
+  .Navbar {
+    display: none !important;
   }
 
-  /* Target specific print layout for cards */
+  /* Force cards to separate and take full page */
   .print-page {
     width: 100% !important;
     max-width: none !important;
-    page-break-inside: avoid;
+    page-break-after: always !important;
+    break-after: page !important;
+    margin: 0 !important;
     border: none !important;
     box-shadow: none !important;
+    padding: 2rem !important;
   }
 
   /* Ensure background colors and images are printed */
