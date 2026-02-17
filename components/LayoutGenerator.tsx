@@ -153,34 +153,47 @@ export default function LayoutGenerator({ tabId }: LayoutGeneratorProps) {
   };
 
   // Upload Handler
-  const handleUpload = (files: FileList) => {
-    Array.from(files).forEach((file) => {
-      const reader = new FileReader();
-      reader.onload = async (ev) => {
-        if (!ev.target?.result) return;
+  const handleUpload = async (files: FileList) => {
+    const fileArray = Array.from(files);
 
-        const newCard: CardData = {
-          id:
-            "card_" +
-            Date.now() +
-            "_" +
-            Math.random().toString(36).substr(2, 9),
-          imgSrc: ev.target.result as string,
-          coords: "-6.9165,107.5913",
-          jenis: "Billboard",
-          ukuran: "4x6m",
-          lokasi: "Jl. Contoh Lokasi",
-          keterangan: "-",
-          timestamp: Date.now(),
-          tabId: tabId,
+    // Create promises for all file reads
+    const cardPromises = fileArray.map((file) => {
+      return new Promise<CardData>((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = (ev) => {
+          if (!ev.target?.result) {
+            reject(new Error("Failed to read file"));
+            return;
+          }
+
+          const newCard: CardData = {
+            id:
+              "card_" +
+              Date.now() +
+              "_" +
+              Math.random().toString(36).substr(2, 9),
+            imgSrc: ev.target.result as string,
+            coords: "-6.9165,107.5913",
+            jenis: "Billboard",
+            ukuran: "4x6m",
+            lokasi: "Jl. Contoh Lokasi",
+            keterangan: "-",
+            timestamp: Date.now(),
+            tabId: tabId,
+          };
+          resolve(newCard);
         };
-
-        // await saveCardToDB(newCard); // Handled by useEffect sync
-        // setCards((prev) => [...prev, newCard]); // Previous
-        setCards([...cards, newCard], "Upload Image"); // access current cards from hook state
-      };
-      reader.readAsDataURL(file);
+        reader.onerror = () => reject(new Error("File reading error"));
+        reader.readAsDataURL(file);
+      });
     });
+
+    try {
+      const newCards = await Promise.all(cardPromises);
+      setCards([...cards, ...newCards], `Upload ${newCards.length} Images`);
+    } catch (error) {
+      console.error("Upload failed:", error);
+    }
   };
 
   // Update Card Handler
