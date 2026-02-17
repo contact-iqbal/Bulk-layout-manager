@@ -11,8 +11,9 @@ export interface CardData {
 }
 
 const DB_NAME = "LayoutGeneratorDB";
-const DB_VERSION = 1;
+const DB_VERSION = 2; // Incremented for history store
 const STORE_NAME = "cards";
+const HISTORY_STORE = "history";
 
 export function initDB(): Promise<IDBDatabase> {
   return new Promise((resolve, reject) => {
@@ -21,6 +22,9 @@ export function initDB(): Promise<IDBDatabase> {
       const db = (e.target as IDBOpenDBRequest).result;
       if (!db.objectStoreNames.contains(STORE_NAME)) {
         db.createObjectStore(STORE_NAME, { keyPath: "id" });
+      }
+      if (!db.objectStoreNames.contains(HISTORY_STORE)) {
+        db.createObjectStore(HISTORY_STORE, { keyPath: "tabId" });
       }
     };
     request.onsuccess = (e) => {
@@ -59,16 +63,43 @@ export async function getAllCards(tabId?: string): Promise<CardData[]> {
     request.onsuccess = () => {
       const allCards = request.result as CardData[];
       if (tabId) {
-        // Filter by tabId.
-        // Note: For existing cards without tabId, they might disappear or show in specific tab.
-        // Let's assume blank tabId implies 'legacy' or 'global' if we wanted,
-        // but for this requirement, we only show cards matching the tabId.
         const filtered = allCards.filter((c) => c.tabId === tabId);
         resolve(filtered);
       } else {
         resolve(allCards);
       }
     };
+    request.onerror = () => reject(request.error);
+  });
+}
+
+export async function saveHistoryToDB(
+  tabId: string,
+  past: any[],
+  future: any[],
+): Promise<void> {
+  const db = await initDB();
+  return new Promise((resolve, reject) => {
+    const transaction = db.transaction([HISTORY_STORE], "readwrite");
+    const request = transaction.objectStore(HISTORY_STORE).put({
+      tabId,
+      past,
+      future,
+      timestamp: Date.now(),
+    });
+    request.onsuccess = () => resolve();
+    request.onerror = () => reject(request.error);
+  });
+}
+
+export async function getHistoryFromDB(
+  tabId: string,
+): Promise<{ past: any[]; future: any[] } | null> {
+  const db = await initDB();
+  return new Promise((resolve, reject) => {
+    const transaction = db.transaction([HISTORY_STORE], "readonly");
+    const request = transaction.objectStore(HISTORY_STORE).get(tabId);
+    request.onsuccess = () => resolve(request.result || null);
     request.onerror = () => reject(request.error);
   });
 }

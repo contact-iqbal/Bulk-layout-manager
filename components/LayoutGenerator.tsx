@@ -9,6 +9,8 @@ import {
   saveCardToDB,
   getAllCards,
   deleteCardFromDB,
+  saveHistoryToDB,
+  getHistoryFromDB,
   CardData,
 } from "@/app/lib/db";
 
@@ -22,6 +24,7 @@ export default function LayoutGenerator({ tabId }: LayoutGeneratorProps) {
   const [activePanel, setActivePanel] = useState<"upload" | "settings" | null>(
     "upload",
   );
+  const [hasLoaded, setHasLoaded] = useState(false);
 
   // Settings State
   const [settings, setSettings] = useState({
@@ -37,6 +40,7 @@ export default function LayoutGenerator({ tabId }: LayoutGeneratorProps) {
     set: setCards,
     undo,
     redo,
+    reset,
     canUndo,
     canRedo,
     history: historyData,
@@ -51,20 +55,29 @@ export default function LayoutGenerator({ tabId }: LayoutGeneratorProps) {
       email: localStorage.getItem("settings_email") || settings.email,
     };
     setSettings(savedSettings);
+    setHasLoaded(false);
 
-    const fetchCards = async () => {
+    const fetchData = async () => {
       try {
         const loadedCards = await getAllCards(tabId);
-        // Initialize history with loaded cards without adding to history stack (kinda tricky with useHistory)
-        // For simplicity, we just set it. If we want to avoid initial undo to empty, we might need a reset method in hook.
-        // But for now setCards is fine.
-        setCards(loadedCards);
+        const savedHistory = await getHistoryFromDB(tabId);
+
+        if (savedHistory) {
+          // If we have saved history, use it. Present state should match current DB cards?
+          // Actually, 'present' in useHistory is just the current state.
+          // If cards in DB were synced with history, then loadedCards is the 'present'.
+          reset(savedHistory.past, loadedCards, savedHistory.future);
+        } else {
+          // Fallback for legacy data without history
+          reset([], loadedCards, []);
+        }
+        setHasLoaded(true);
       } catch (error) {
-        console.error("Failed to load cards:", error);
+        console.error("Failed to load data:", error);
       }
     };
-    fetchCards();
-  }, []);
+    fetchData();
+  }, [tabId, reset]);
 
   // Sync with DB whenever cards change (from undo/redo/set)
   // Optimization: This might be heavy if we delete/rewrite all.
@@ -86,11 +99,10 @@ export default function LayoutGenerator({ tabId }: LayoutGeneratorProps) {
     // However, since `setCards` in `handleUpload` etc previously did `saveCardToDB`,
     // now we must do it inversely: Effect observes `cards` and ensures DB matches.
 
-    const syncDB = async () => {
-      // Get all current DB cards for this tab
+    const syncCards = async () => {
+      if (!hasLoaded) return;
       const dbCards = await getAllCards(tabId);
       const currentIds = new Set(cards.map((c) => c.id));
-      const dbIds = new Set(dbCards.map((c) => c.id));
 
       // Delete removed
       for (const c of dbCards) {
@@ -98,15 +110,19 @@ export default function LayoutGenerator({ tabId }: LayoutGeneratorProps) {
           await deleteCardFromDB(c.id);
         }
       }
-
       // Add/Update existing
       for (const c of cards) {
-        // Optimization: check if changed? For now just put (it updates).
         await saveCardToDB(c);
       }
     };
-    syncDB();
-  }, [cards, tabId]);
+    syncCards();
+  }, [cards, tabId, hasLoaded]);
+
+  // Sync History to DB
+  useEffect(() => {
+    if (!hasLoaded) return;
+    saveHistoryToDB(tabId, historyData.past, historyData.future);
+  }, [historyData.past, historyData.future, tabId, hasLoaded]);
 
   // Global Undo/Redo Events
   useEffect(() => {

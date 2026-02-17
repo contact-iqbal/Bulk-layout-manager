@@ -140,68 +140,75 @@
 /* Print Styles */
 @media print {
   @page {
-    margin: 0;
-    size: auto;
+    margin: 1cm;
+    size: A4 portrait;
   }
 
-  /* Reset all parent heights for printing */
+  /* CRITICAL: Reset ALL layout containers that might block page breaks */
   html,
   body,
   #__next,
   main,
-  .h-screen,
-  .h-full,
-  .flex-1,
-  .relative,
+  [class*="Home"],
+  [class*="TabSystem"],
+  [class*="LayoutGenerator"],
   #main-content,
   #cards-container {
     height: auto !important;
     min-height: initial !important;
+    max-height: initial !important;
     overflow: visible !important;
     position: static !important;
     display: block !important;
+    width: 100% !important;
+    margin: 0 !important;
+    padding: 0 !important;
   }
 
   body {
-    background: white;
-    -webkit-print-color-adjust: exact;
-    print-color-adjust: exact;
+    background: white !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
   }
 
-  /* Hide Sidebar and other non-printable elements */
+  /* Hide UI elements explicitly */
   .no-print,
-  nav,
-  header,
-  aside,
-  .no-print-container,
-  [class*="TabSystem_tab_bar"] {
-    display: none !important;
-  }
-
-  /* Specific selectors to hide based on component structure */
-  .TabSystem_tab_bar,
+  .Navbar,
   .Sidebar_mini,
   .Sidebar_main,
+  [class*="TabSystem_tab_bar"],
   button,
-  .Navbar {
+  nav,
+  header,
+  aside {
     display: none !important;
   }
 
-  /* Force cards to separate and take full page */
+  /* Force cards to separate onto new pages */
   .print-page {
+    display: block !important;
     width: 100% !important;
-    max-width: none !important;
+    max-width: 100% !important;
     page-break-after: always !important;
     break-after: page !important;
-    margin: 0 !important;
+    page-break-inside: avoid !important;
+    break-inside: avoid !important;
+    margin-bottom: 2cm !important;
     border: none !important;
     box-shadow: none !important;
-    padding: 2rem !important;
+    padding: 0 !important;
+    position: relative !important;
   }
 
   /* Ensure background colors and images are printed */
   * {
     -webkit-print-color-adjust: exact !important;
     print-color-adjust: exact !important;
+    color-adjust: exact !important;
+  }
+
+  /* Fix for card internal layout if it uses flex */
+  .print-page .flex {
+    display: flex !important;
   }
 }

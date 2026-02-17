@@ -115,7 +115,7 @@ export default function TabSystem({
             className={`w-full h-full absolute inset-0 ${
               activeTabId === tab.id
                 ? "z-10 opacity-100"
-                : "z-0 opacity-0 pointer-events-none"
+                : "z-0 opacity-0 pointer-events-none no-print"
             }`}
             style={{ display: activeTabId === tab.id ? "block" : "none" }}
           >

@@ -10,6 +10,7 @@ interface useHistoryResult<T> {
   set: (newPresent: T, action?: string) => void;
   undo: () => void;
   redo: () => void;
+  reset: (past: HistoryItem<T>[], present: T, future: HistoryItem<T>[]) => void;
   canUndo: boolean;
   canRedo: boolean;
   history: {
@@ -58,11 +59,21 @@ export default function useHistory<T>(initialState: T): useHistoryResult<T> {
     [past, present],
   );
 
+  const reset = useCallback(
+    (newPast: HistoryItem<T>[], newPresent: T, newFuture: HistoryItem<T>[]) => {
+      setPast(newPast);
+      setPresent(newPresent);
+      setFuture(newFuture);
+    },
+    [],
+  );
+
   return {
     state: present,
     set,
     undo,
     redo,
+    reset,
     canUndo,
     canRedo,
     history: { past, present, future },
