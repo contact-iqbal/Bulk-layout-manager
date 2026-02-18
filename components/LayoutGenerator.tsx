@@ -196,6 +196,44 @@ export default function LayoutGenerator({
         
         document.body.appendChild(cloned);
 
+        // Transform inputs and textareas to text elements for better rendering
+        const inputs = cloned.querySelectorAll('input, textarea');
+        inputs.forEach(input => {
+            const el = input as HTMLInputElement | HTMLTextAreaElement;
+            const style = window.getComputedStyle(el);
+            
+            const replacement = document.createElement('div');
+            replacement.textContent = el.value;
+            
+            // Copy relevant styles
+            replacement.style.fontFamily = style.fontFamily;
+            replacement.style.fontSize = style.fontSize;
+            replacement.style.fontWeight = style.fontWeight;
+            replacement.style.color = style.color;
+            replacement.style.textAlign = style.textAlign;
+            replacement.style.lineHeight = style.lineHeight;
+            replacement.style.textTransform = style.textTransform;
+            replacement.style.letterSpacing = style.letterSpacing;
+            replacement.style.whiteSpace = 'pre-wrap'; // Preserve line breaks for textareas
+            replacement.style.wordBreak = 'break-word';
+            replacement.style.display = 'inline-block';
+            replacement.style.width = style.width; // Maintain width if set
+            
+            // Remove border/background to look like clean text
+            replacement.style.border = 'none';
+            replacement.style.background = 'transparent';
+            replacement.style.padding = style.padding;
+            replacement.style.margin = style.margin;
+
+            if (el.tagName.toLowerCase() === 'textarea') {
+                replacement.style.display = 'block'; // Textareas usually block or inline-block behaving like block
+                replacement.style.height = 'auto'; // Let it grow
+                replacement.style.minHeight = style.height;
+            }
+
+            el.parentNode?.replaceChild(replacement, el);
+        });
+
         // Fix for "unsupported color function oklch/oklab" error in html2canvas
         // Tailwind CSS v4 uses oklch by default, which html2canvas doesn't support yet.
         // We traverse the cloned DOM and convert any oklch/oklab colors to RGB using a canvas context.
