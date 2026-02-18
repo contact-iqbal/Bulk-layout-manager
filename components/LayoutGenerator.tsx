@@ -463,20 +463,36 @@ export default function LayoutGenerator({
                  cardRoot.style.border = "none"; 
              }
 
-            // Force 16:9 aspect ratio for uploaded images
-            // html2canvas might not fully support aspect-ratio CSS, so we set explicit height
+            // Force 16:9 aspect ratio and correct cropping (cover) for uploaded images
+            // html2canvas often fails with object-fit: cover on img tags, so we use background-image
             const uploadImg = wrapper.querySelector('img[alt="Upload"]') as HTMLImageElement;
             if (uploadImg && uploadImg.parentElement) {
                 const imgContainer = uploadImg.parentElement;
-                // Get the computed width of the container
                 const containerWidth = imgContainer.offsetWidth;
+                
                 if (containerWidth > 0) {
-                    // Force height to be 16:9 of width
-                    imgContainer.style.height = `${containerWidth * 9 / 16}px`;
-                    // Ensure image covers the container
-                    uploadImg.style.width = "100%";
-                    uploadImg.style.height = "100%";
-                    uploadImg.style.objectFit = "cover";
+                    // Force container height to be 16:9
+                    const targetHeight = containerWidth * 9 / 16;
+                    imgContainer.style.height = `${targetHeight}px`;
+                    
+                    // Create a div to replace the image
+                    const bgDiv = document.createElement('div');
+                    bgDiv.style.width = '100%';
+                    bgDiv.style.height = '100%';
+                    bgDiv.style.backgroundImage = `url("${uploadImg.src}")`;
+                    bgDiv.style.backgroundSize = 'cover';
+                    bgDiv.style.backgroundPosition = 'center';
+                    bgDiv.style.backgroundRepeat = 'no-repeat';
+                    
+                    // Copy critical styles from the original image
+                    // We need to ensure borders and rounded corners are preserved
+                    const imgStyle = window.getComputedStyle(uploadImg);
+                    bgDiv.style.borderRadius = imgStyle.borderRadius;
+                    bgDiv.style.border = imgStyle.border;
+                    bgDiv.style.boxShadow = imgStyle.boxShadow;
+                    
+                    // Replace img with div
+                    uploadImg.parentNode?.replaceChild(bgDiv, uploadImg);
                 }
             }
 
