@@ -16,6 +16,8 @@ import {
 } from "@/app/lib/db";
 
 import useHistory from "@/hooks/useHistory";
+import html2canvas from "html2canvas";
+import jsPDF from "jspdf";
 
 interface Settings {
   addr1: string;
@@ -132,100 +134,247 @@ export default function LayoutGenerator({
   const handleDownloadPDF = async (pageRange?: string) => {
     if (!contentRef.current) return;
     setIsExporting(true);
-
-    // Dispatch custom event for loading indicator
-    window.dispatchEvent(new CustomEvent("export-start", {
-      detail: { fileName: `${tabTitle.replace(/[^a-z0-9\s-_]/gi, "").trim() || "Layout"}.pdf` }
+    
+    window.dispatchEvent(new CustomEvent("export-start", { 
+      detail: { fileName: `${tabTitle.replace(/[^a-z0-9\s-_]/gi, "").trim() || "Layout"}.pdf` } 
     }));
 
-    const element = contentRef.current.querySelector(
-      "#export-root",
-    ) as HTMLElement;
+    try {
+        const element = contentRef.current.querySelector("#cards-container") || contentRef.current.querySelector("#export-root");
+        
+        if (!element) throw new Error("Container element not found");
 
-    if (!element) {
-      setIsExporting(false);
-      return;
-    }
-
-    // 1️⃣ Temporarily remove scale from LIVE element
-    const originalTransform = element.style.transform;
-    element.style.transform = "scale(1)";
-
-    // 2️⃣ Force reflow (important)
-    void element.offsetHeight;
-
-    // 3️⃣ Clone AFTER reflow
-    const cloned = element.cloneNode(true) as HTMLElement;
-
-    // 4️⃣ Restore zoom in UI
-    element.style.transform = originalTransform;
-
-    // Filter pages based on pageRange if provided
-    if (pageRange) {
-      const cardWrappers = cloned.querySelectorAll(".layout-card-wrapper");
-      const pagesToKeep = new Set<number>();
-
-      // Parse page range "1,3,5-7"
-      const parts = pageRange.split(",");
-      parts.forEach(part => {
-        const range = part.trim().split("-");
-        if (range.length === 1) {
-          const page = parseInt(range[0]);
-          if (!isNaN(page)) pagesToKeep.add(page);
-        } else if (range.length === 2) {
-          const start = parseInt(range[0]);
-          const end = parseInt(range[1]);
-          if (!isNaN(start) && !isNaN(end)) {
-            for (let i = start; i <= end; i++) pagesToKeep.add(i);
+        // Clone for manipulation
+        const cloned = element.cloneNode(true) as HTMLElement;
+        
+        // Filter pages based on pageRange if provided
+        if (pageRange) {
+          const cardWrappers = cloned.querySelectorAll(".layout-card-wrapper");
+          const pagesToKeep = new Set<number>();
+          
+          // Parse page range "1,3,5-7"
+          const parts = pageRange.split(",");
+          parts.forEach(part => {
+            const range = part.trim().split("-");
+            if (range.length === 1) {
+              const page = parseInt(range[0]);
+              if (!isNaN(page)) pagesToKeep.add(page);
+            } else if (range.length === 2) {
+              const start = parseInt(range[0]);
+              const end = parseInt(range[1]);
+              if (!isNaN(start) && !isNaN(end)) {
+                for (let i = start; i <= end; i++) pagesToKeep.add(i);
+              }
+            }
+          });
+    
+          // Remove cards not in range (using 1-based indexing)
+          cardWrappers.forEach((wrapper, index) => {
+            if (!pagesToKeep.has(index + 1)) {
+              wrapper.remove();
+            }
+          });
+    
+          // If no cards left, alert and stop
+          if (cloned.querySelectorAll(".layout-card-wrapper").length === 0) {
+            alert("Tidak ada halaman yang cocok dengan rentang yang dipilih.");
+            setIsExporting(false);
+            window.dispatchEvent(new CustomEvent("export-end"));
+            return;
           }
         }
-      });
 
-      // Remove cards not in range (using 1-based indexing)
-      cardWrappers.forEach((wrapper, index) => {
-        if (!pagesToKeep.has(index + 1)) {
-          wrapper.remove();
+        // Prepare clone for rendering
+        cloned.style.position = "absolute";
+        cloned.style.left = "-9999px";
+        cloned.style.top = "0";
+        // Reset zoom/transform on the container
+        cloned.style.transform = "none";
+        cloned.style.width = "auto";
+        cloned.style.height = "auto";
+        cloned.style.overflow = "visible";
+        
+        document.body.appendChild(cloned);
+
+        // Fix for "unsupported color function oklch/oklab" error in html2canvas
+        // Tailwind CSS v4 uses oklch by default, which html2canvas doesn't support yet.
+        // We traverse the cloned DOM and convert any oklch/oklab colors to RGB using a canvas context.
+        try {
+            const canvas = document.createElement('canvas');
+            canvas.width = 1;
+            canvas.height = 1;
+            const ctx = canvas.getContext('2d', { willReadFrequently: true });
+            
+            if (ctx) {
+                // Helper to convert color string to hex/rgba using canvas
+                const convertColor = (colorStr: string): string | null => {
+                    try {
+                        ctx.clearRect(0, 0, 1, 1);
+                        // Default to black if invalid, so we check if it changes
+                        ctx.fillStyle = '#000000'; 
+                        ctx.fillRect(0, 0, 1, 1);
+                        
+                        ctx.fillStyle = colorStr;
+                        // If browser doesn't understand colorStr, fillStyle won't change (usually)
+                        // But let's just draw
+                        ctx.clearRect(0, 0, 1, 1);
+                        ctx.fillRect(0, 0, 1, 1);
+                        
+                        const data = ctx.getImageData(0, 0, 1, 1).data;
+                        return `rgba(${data[0]}, ${data[1]}, ${data[2]}, ${data[3] / 255})`;
+                    } catch (e) {
+                        return null;
+                    }
+                };
+
+                const elements = [cloned, ...Array.from(cloned.querySelectorAll('*'))] as HTMLElement[];
+                
+                // Properties that might contain colors
+                // We check computed styles
+                const colorProps = [
+                    'color', 
+                    'backgroundColor', 
+                    'borderColor', 
+                    'borderTopColor', 
+                    'borderRightColor', 
+                    'borderBottomColor', 
+                    'borderLeftColor',
+                    'outlineColor',
+                    'textDecorationColor',
+                    'fill',
+                    'stroke'
+                ];
+
+                // Complex properties that might contain colors mixed with other things
+                const complexProps = ['boxShadow', 'textShadow', 'backgroundImage'];
+
+                elements.forEach(el => {
+                    const style = window.getComputedStyle(el);
+                    
+                    // Handle simple color properties
+                    colorProps.forEach(prop => {
+                        const val = style.getPropertyValue(prop.replace(/[A-Z]/g, m => `-${m.toLowerCase()}`));
+                        if (val && (val.includes('oklch') || val.includes('oklab') || val.includes('lab(') || val.includes('lch('))) {
+                             const converted = convertColor(val);
+                             if (converted) {
+                                 (el.style as any)[prop] = converted;
+                             }
+                        }
+                    });
+
+                    // Handle complex properties (shadows, gradients)
+                    // We use regex to find oklch(...) or okllab(...) patterns
+                    complexProps.forEach(prop => {
+                        const val = style.getPropertyValue(prop.replace(/[A-Z]/g, m => `-${m.toLowerCase()}`));
+                         if (val && (val.includes('oklch') || val.includes('oklab') || val.includes('lab(') || val.includes('lch('))) {
+                             // Replace all occurrences
+                             const newVal = val.replace(/(oklch|oklab|lab|lch)\([^)]+\)/g, (match) => {
+                                 const converted = convertColor(match);
+                                 return converted || match;
+                             });
+                             if (newVal !== val) {
+                                 (el.style as any)[prop] = newVal;
+                             }
+                         }
+                    });
+                });
+            }
+        } catch (e) {
+            console.warn("Color conversion failed", e);
         }
-      });
 
-      // If no cards left, alert and stop
-      if (cloned.querySelectorAll(".layout-card-wrapper").length === 0) {
-        alert("Tidak ada halaman yang cocok dengan rentang yang dipilih.");
+        // Get wrappers from the CLONED container
+        const wrappers = cloned.querySelectorAll(".layout-card-wrapper");
+        
+        if (wrappers.length === 0) {
+            document.body.removeChild(cloned);
+            setIsExporting(false);
+            window.dispatchEvent(new CustomEvent("export-end"));
+            return;
+        }
+
+        // Initialize PDF
+        const isF4 = settings.paperSize === "f4";
+        // F4: 215 x 330 mm (Landscape) -> 330 x 215
+        // A4: 210 x 297 mm (Landscape) -> 297 x 210
+        const format = isF4 ? [330, 215] : "a4";
+        
+        const pdf = new jsPDF({
+            orientation: "landscape",
+            unit: "mm",
+            format: format,
+            compress: true
+        });
+
+        const pdfWidth = pdf.internal.pageSize.getWidth();
+        const pdfHeight = pdf.internal.pageSize.getHeight();
+
+        // Process each card
+        for (let i = 0; i < wrappers.length; i++) {
+            const wrapper = wrappers[i] as HTMLElement;
+            
+            // Set fixed dimensions for capture to match paper aspect ratio/size
+            const wMM = isF4 ? 330 : 297;
+            const hMM = isF4 ? 215 : 210;
+            
+            // 1mm = 3.7795px
+            // Use 2x scale for better quality
+            const pixelWidth = Math.ceil(wMM * 3.7795);
+            const pixelHeight = Math.ceil(hMM * 3.7795);
+            
+            wrapper.style.width = `${pixelWidth}px`;
+            wrapper.style.height = `${pixelHeight}px`;
+            wrapper.style.margin = "0";
+            wrapper.style.padding = "0";
+            wrapper.style.boxSizing = "border-box";
+            wrapper.style.backgroundColor = "white";
+            
+            // Ensure internal card fills
+            const card = wrapper.querySelector(".layout-card") as HTMLElement;
+            if (card) {
+                card.style.width = "100%";
+                card.style.height = "100%";
+                card.style.transform = "none";
+                card.style.boxShadow = "none";
+                card.style.border = "none";
+            }
+            
+             const cardRoot = wrapper.firstElementChild as HTMLElement;
+             if (cardRoot) {
+                 cardRoot.style.width = "100%";
+                 cardRoot.style.height = "100%";
+                 cardRoot.style.boxShadow = "none"; 
+                 cardRoot.style.border = "none"; 
+             }
+
+            // Render
+            const canvas = await html2canvas(wrapper, {
+                scale: 2, 
+                useCORS: true,
+                logging: false,
+                backgroundColor: "#ffffff",
+                width: pixelWidth,
+                height: pixelHeight,
+                windowWidth: pixelWidth,
+                windowHeight: pixelHeight
+            });
+
+            const imgData = canvas.toDataURL("image/jpeg", 0.95);
+            
+            if (i > 0) pdf.addPage();
+            
+            pdf.addImage(imgData, "JPEG", 0, 0, pdfWidth, pdfHeight);
+        }
+
+        pdf.save(`${tabTitle.replace(/[^a-z0-9\s-_]/gi, "").trim() || "Layout"}.pdf`);
+        document.body.removeChild(cloned);
+
+    } catch (error) {
+        console.error("PDF Export failed:", error);
+        alert("Gagal mengekspor PDF.");
+    } finally {
         setIsExporting(false);
         window.dispatchEvent(new CustomEvent("export-end"));
-        return;
-      }
-    }
-
-    const opt = {
-      margin: [0, 0, 0, 0] as [number, number, number, number],
-      filename: `${tabTitle.replace(/[^a-z0-9\s-_]/gi, "").trim() || "Layout"}.pdf`,
-      image: { type: "jpeg", quality: 0.98 },
-      html2canvas: {
-        scale: 2,
-        useCORS: true,
-        logging: true,
-        ignoreElements: (el: Element) => el.tagName === "IFRAME",
-        foreignObjectRendering: true,
-        windowWidth: 1123,
-      },
-      jsPDF: {
-        unit: "mm",
-        format: settings.paperSize === "f4" ? [330, 215] : "a4",
-        orientation: "landscape",
-        compress: true,
-      },
-      pagebreak: { mode: ["css", "legacy"] },
-    };
-
-    try {
-      const html2pdf = (await import("html2pdf.js")).default;
-      await (html2pdf() as any).from(cloned).set(opt).save();
-    } catch (error) {
-      console.error("PDF Export failed:", error);
-    } finally {
-      setIsExporting(false);
-      window.dispatchEvent(new CustomEvent("export-end"));
     }
   };
 
@@ -588,7 +737,6 @@ export default function LayoutGenerator({
         ) : (
           <div
             id="export-root"
-            className="bg-white"
             style={{
               width: "1123px",
               margin: "0 auto"
