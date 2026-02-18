@@ -126,10 +126,9 @@ export default function LayoutCard({
           className="w-40 h-24 object-cover rounded"
           alt="Logo"
         />
-        <div className="text-right font-black uppercase text-2xl leading-none">
-          <span className="text-[#F36F21]">KLIK, BAYAR</span>
-          <br />
-          <span className="text-[#002D3E]">TAYANG</span>
+        <div className="text-right genos uppercase text-3xl leading-none">
+          <span className="text-[#F36F21] genos">Klik, Bayar, </span>
+          <span className="text-[#002D3E] genos">Tayang</span>
         </div>
       </div>
 

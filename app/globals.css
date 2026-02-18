@@ -205,7 +205,6 @@
     overflow: visible !important;
     position: static !important;
     display: block !important;
-    width: 100% !important;
     margin: 0 !important;
     padding: 0 !important;
   }
@@ -233,8 +232,8 @@
   .print-page {
     display: flex !important;
     flex-direction: column !important;
-    width: var(--print-width, 210mm) !important;
-    height: var(--print-height, 297mm) !important;
+    width: var(--print-width, 297mm) !important;
+    height: var(--print-height, 210mm) !important;
     max-width: none !important;
     max-height: none !important;
     page-break-after: always !important;
@@ -266,15 +265,26 @@
 }
 
 /* Screen Preview Styling */
-.print-page {
+/* .print-page {
   transition: all 0.3s ease;
   box-shadow: 0 4px 15px rgba(0, 0, 0, 0.05);
   border-radius: 4px;
-  width: var(--print-width, 210mm);
-  height: var(--print-height, 297mm);
-  overflow: visible;
-  margin-bottom: 2rem;
+  width: var(--print-width, 297mm);
+  min-height: var(--print-height, 210mm);
+  box-sizing: border-box;
+  overflow: hidden;
+} */
+
+.print-page {
+  width: 1123px;        /* A4 landscape width */
+  height: 794px;        /* A4 landscape height */
+  box-sizing: border-box;
+  overflow: hidden;
+
+  box-shadow: none;     /* remove shadow */
+  border-radius: 0;     /* remove radius */
 }
+
 
 .thin-scrollbar::-webkit-scrollbar {
   width: 4px;
@@ -291,4 +301,11 @@
 
 .thin-scrollbar::-webkit-scrollbar-thumb:hover {
   background: #cbd5e1;
+}
+
+.genos {
+  font-family: "Genos", sans-serif;
+  font-optical-sizing: auto;
+  font-weight: 600;
+  font-style: italic;
 }

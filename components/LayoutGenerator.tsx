@@ -16,6 +16,7 @@ import {
 } from "@/app/lib/db";
 
 import useHistory from "@/hooks/useHistory";
+import html2PDF from "jspdf-html2canvas-pro";
 
 interface Settings {
   addr1: string;
@@ -82,6 +83,7 @@ export default function LayoutGenerator({
     const element = contentRef.current.querySelector(
       "#cards-container",
     ) as HTMLElement;
+    const cloned = element.cloneNode(true)
     if (!element) {
       setIsExporting(false);
       return;
@@ -89,18 +91,20 @@ export default function LayoutGenerator({
 
     const opt = {
       margin: [0, 0, 0, 0] as [number, number, number, number],
-      filename: `${tabTitle.replace(/[^a-z0-9]/gi, "_").toLowerCase()}.pdf`,
+      // filename: `${tabTitle.replace(/[^a-z0-9]/gi, "_").toLowerCase()}.pdf`,
+      filename: `generated_${new Date(Date.now()).toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' })}.pdf`,
       image: { type: "jpeg", quality: 0.98 },
       html2canvas: {
         scale: 2,
         useCORS: true,
         logging: true,
         ignoreElements: (el: Element) => el.tagName === "IFRAME",
+        foreignObjectRendering: true,
       },
       jsPDF: {
         unit: "mm",
-        format: settings.paperSize === "f4" ? [215, 330] : "a4",
-        orientation: "portrait",
+        format: settings.paperSize === "f4" ? [330, 215] : "a4",
+        orientation: "landscape",
         compress: true,
       },
       pagebreak: { mode: ["css", "legacy"] },
@@ -108,13 +112,14 @@ export default function LayoutGenerator({
 
     try {
       const html2pdf = (await import("html2pdf.js")).default;
-      await (html2pdf() as any).from(element).set(opt).save();
+      await (html2pdf() as any).from(cloned).set(opt).save();
     } catch (error) {
       console.error("PDF Export failed:", error);
     } finally {
       setIsExporting(false);
     }
   };
+
 
   // Upload Handler
   const handleUpload = async (files: FileList) => {
@@ -290,8 +295,8 @@ export default function LayoutGenerator({
       className="flex h-full w-full bg-white relative"
       style={
         {
-          "--print-width": settings.paperSize === "f4" ? "215mm" : "210mm",
-          "--print-height": settings.paperSize === "f4" ? "330mm" : "297mm",
+          "--print-width": settings.paperSize === "f4" ? "330mm" : "297mm",
+          "--print-height": settings.paperSize === "f4" ? "215mm" : "210mm",
         } as React.CSSProperties
       }
     >
@@ -349,7 +354,7 @@ export default function LayoutGenerator({
         ) : (
           <div
             id="cards-container"
-            className="flex flex-col gap-8 w-full max-w-5xl"
+            className="grid gap-8 w-fit"
           >
             {cards.map((card, index) => (
               <LayoutCard
