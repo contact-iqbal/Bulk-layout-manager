@@ -18,6 +18,7 @@ import {
 import useHistory from "@/hooks/useHistory";
 import html2canvas from "html2canvas";
 import jsPDF from "jspdf";
+import JSZip from "jszip";
 
 interface Settings {
   addr1: string;
@@ -463,39 +464,6 @@ export default function LayoutGenerator({
                  cardRoot.style.border = "none"; 
              }
 
-            // Force 16:9 aspect ratio and correct cropping (cover) for uploaded images
-            // html2canvas often fails with object-fit: cover on img tags, so we use background-image
-            const uploadImg = wrapper.querySelector('img[alt="Upload"]') as HTMLImageElement;
-            if (uploadImg && uploadImg.parentElement) {
-                const imgContainer = uploadImg.parentElement;
-                const containerWidth = imgContainer.offsetWidth;
-                
-                if (containerWidth > 0) {
-                    // Force container height to be 16:9
-                    const targetHeight = containerWidth * 9 / 16;
-                    imgContainer.style.height = `${targetHeight}px`;
-                    
-                    // Create a div to replace the image
-                    const bgDiv = document.createElement('div');
-                    bgDiv.style.width = '100%';
-                    bgDiv.style.height = '100%';
-                    bgDiv.style.backgroundImage = `url("${uploadImg.src}")`;
-                    bgDiv.style.backgroundSize = 'cover';
-                    bgDiv.style.backgroundPosition = 'center';
-                    bgDiv.style.backgroundRepeat = 'no-repeat';
-                    
-                    // Copy critical styles from the original image
-                    // We need to ensure borders and rounded corners are preserved
-                    const imgStyle = window.getComputedStyle(uploadImg);
-                    bgDiv.style.borderRadius = imgStyle.borderRadius;
-                    bgDiv.style.border = imgStyle.border;
-                    bgDiv.style.boxShadow = imgStyle.boxShadow;
-                    
-                    // Replace img with div
-                    uploadImg.parentNode?.replaceChild(bgDiv, uploadImg);
-                }
-            }
-
             // Render
             const canvas = await html2canvas(wrapper, {
                 scale: 2, 
@@ -521,6 +489,321 @@ export default function LayoutGenerator({
     } catch (error) {
         console.error("PDF Export failed:", error);
         alert("Gagal mengekspor PDF.");
+    } finally {
+        setIsExporting(false);
+        window.dispatchEvent(new CustomEvent("export-end"));
+    }
+  };
+
+  // Image Export Handler
+  const handleExportImage = async (format: "png" | "jpg", pageRange?: string) => {
+    if (!contentRef.current) return;
+    setIsExporting(true);
+    
+    window.dispatchEvent(new CustomEvent("export-start", { 
+      detail: { fileName: `${tabTitle.replace(/[^a-z0-9\s-_]/gi, "").trim() || "Layout"}.${format}` } 
+    }));
+
+    try {
+        const element = contentRef.current.querySelector("#cards-container") || contentRef.current.querySelector("#export-root");
+        if (!element) throw new Error("Container element not found");
+
+        // Clone for manipulation
+        const cloned = element.cloneNode(true) as HTMLElement;
+        
+        // Setup hidden container
+        cloned.style.position = 'fixed';
+        cloned.style.top = '0';
+        cloned.style.left = '0';
+        cloned.style.width = '100%'; 
+        cloned.style.height = 'auto';
+        cloned.style.zIndex = '-9999';
+        cloned.style.pointerEvents = 'none'; // prevent interaction
+        cloned.id = "export-cloned-root";
+        
+        // Remove scale/transform on cloned container if any
+        cloned.style.transform = 'none';
+        
+        document.body.appendChild(cloned);
+
+        // 1. Transform inputs and textareas
+        const inputs = cloned.querySelectorAll('input, textarea');
+        inputs.forEach(input => {
+            const el = input as HTMLInputElement | HTMLTextAreaElement;
+            const style = window.getComputedStyle(el);
+            const replacement = document.createElement('div');
+            replacement.textContent = el.value;
+            
+            replacement.style.fontFamily = style.fontFamily;
+            replacement.style.fontSize = style.fontSize;
+            replacement.style.fontWeight = style.fontWeight;
+            replacement.style.color = style.color;
+            replacement.style.textAlign = style.textAlign;
+            replacement.style.lineHeight = style.lineHeight;
+            replacement.style.textTransform = style.textTransform;
+            replacement.style.letterSpacing = style.letterSpacing;
+            replacement.style.whiteSpace = 'pre-wrap';
+            replacement.style.wordBreak = 'break-word';
+            replacement.style.display = 'inline-block';
+            replacement.style.width = style.width;
+            replacement.style.border = 'none';
+            replacement.style.background = 'transparent';
+            replacement.style.padding = style.padding;
+            replacement.style.margin = style.margin;
+
+             if (el.tagName.toLowerCase() === 'textarea') {
+                replacement.style.display = 'block';
+                replacement.style.height = 'auto';
+                replacement.style.minHeight = style.height;
+            }
+            el.parentNode?.replaceChild(replacement, el);
+        });
+
+        // 2. Fix object-fit: cover for images (html2canvas issue)
+        const images = cloned.querySelectorAll('img');
+        images.forEach(img => {
+            const style = window.getComputedStyle(img);
+            if (style.objectFit === 'cover') {
+                const div = document.createElement('div');
+                div.style.width = style.width || '100%';
+                div.style.height = style.height || '100%';
+                div.style.backgroundImage = `url("${img.src}")`;
+                div.style.backgroundSize = 'cover';
+                div.style.backgroundPosition = 'center';
+                div.style.borderRadius = style.borderRadius;
+                div.style.border = style.border;
+                div.style.boxShadow = style.boxShadow;
+                div.style.position = style.position;
+                div.style.top = style.top;
+                div.style.left = style.left;
+                div.style.right = style.right;
+                div.style.bottom = style.bottom;
+                div.style.zIndex = style.zIndex;
+                
+                img.parentNode?.replaceChild(div, img);
+            }
+        });
+
+        // 3. Handle Map Iframes
+        const mapIframes = cloned.querySelectorAll('iframe');
+        const mapLoadPromises: Promise<void>[] = [];
+        mapIframes.forEach(iframe => {
+            const src = iframe.src;
+            const match = src.match(/q=([-\d\.,]+)/);
+            if (match && match[1]) {
+                const coords = match[1].split(',');
+                if (coords.length === 2) {
+                    const lat = coords[0].trim();
+                    const lon = coords[1].trim();
+                    const img = document.createElement('img');
+                    img.crossOrigin = "anonymous";
+                    img.src = `https://static-maps.yandex.ru/1.x/?ll=${lon},${lat}&z=16&l=map&lang=en_US&size=600,450&pt=${lon},${lat},pm2rdm`;
+                    img.style.width = '100%';
+                    img.style.height = '100%';
+                    img.style.objectFit = 'cover';
+                    img.style.border = '0';
+                    img.style.position = 'absolute';
+                    img.style.inset = '0';
+                    const parent = iframe.parentNode;
+                    if (parent) {
+                        const loadPromise = new Promise<void>((resolve) => {
+                            img.onload = () => resolve();
+                            img.onerror = () => {
+                                const placeholder = document.createElement('div');
+                                Object.assign(placeholder.style, { width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', backgroundColor: '#f0f0f0', color: '#666', fontSize: '12px' });
+                                placeholder.innerHTML = `<div style="text-align:center">Map Preview<br/>${lat}, ${lon}</div>`;
+                                if (img.parentNode) img.parentNode.replaceChild(placeholder, img);
+                                resolve();
+                            };
+                        });
+                        mapLoadPromises.push(loadPromise);
+                        parent.replaceChild(img, iframe);
+                    }
+                }
+            }
+        });
+
+        if (mapLoadPromises.length > 0) {
+            await Promise.race([
+                Promise.all(mapLoadPromises),
+                new Promise(resolve => setTimeout(resolve, 5000))
+            ]);
+        }
+
+        // 4. Color Fix (oklch/oklab)
+         try {
+            const canvas = document.createElement('canvas');
+            canvas.width = 1;
+            canvas.height = 1;
+            const ctx = canvas.getContext('2d', { willReadFrequently: true });
+            
+            if (ctx) {
+                const convertColor = (colorStr: string): string | null => {
+                    try {
+                        ctx.clearRect(0, 0, 1, 1);
+                        ctx.fillStyle = '#000000'; 
+                        ctx.fillRect(0, 0, 1, 1);
+                        ctx.fillStyle = colorStr;
+                        ctx.clearRect(0, 0, 1, 1);
+                        ctx.fillRect(0, 0, 1, 1);
+                        const data = ctx.getImageData(0, 0, 1, 1).data;
+                        return `rgba(${data[0]}, ${data[1]}, ${data[2]}, ${data[3] / 255})`;
+                    } catch (e) {
+                        return null;
+                    }
+                };
+
+                const elements = [cloned, ...Array.from(cloned.querySelectorAll('*'))] as HTMLElement[];
+                const colorProps = ['color', 'backgroundColor', 'borderColor', 'borderTopColor', 'borderRightColor', 'borderBottomColor', 'borderLeftColor', 'outlineColor', 'textDecorationColor', 'fill', 'stroke'];
+                const complexProps = ['boxShadow', 'textShadow', 'backgroundImage'];
+
+                elements.forEach(el => {
+                    const style = window.getComputedStyle(el);
+                    colorProps.forEach(prop => {
+                        const val = style.getPropertyValue(prop.replace(/[A-Z]/g, m => `-${m.toLowerCase()}`));
+                        if (val && (val.includes('oklch') || val.includes('oklab') || val.includes('lab(') || val.includes('lch('))) {
+                             const converted = convertColor(val);
+                             if (converted) (el.style as any)[prop] = converted;
+                        }
+                    });
+                    complexProps.forEach(prop => {
+                        const val = style.getPropertyValue(prop.replace(/[A-Z]/g, m => `-${m.toLowerCase()}`));
+                         if (val && (val.includes('oklch') || val.includes('oklab') || val.includes('lab(') || val.includes('lch('))) {
+                             const newVal = val.replace(/(oklch|oklab|lab|lch)\([^)]+\)/g, (match) => {
+                                 const converted = convertColor(match);
+                                 return converted || match;
+                             });
+                             if (newVal !== val) (el.style as any)[prop] = newVal;
+                         }
+                    });
+                });
+            }
+        } catch (e) {
+            console.warn("Color conversion failed", e);
+        }
+
+        // Get wrappers
+        const wrappers = cloned.querySelectorAll(".layout-card-wrapper");
+        
+        // Filter based on pageRange
+        let targetWrappers: HTMLElement[] = [];
+        if (pageRange && pageRange.trim() !== "") {
+            const ranges = pageRange.split(',').map(r => r.trim());
+            const indices = new Set<number>();
+            
+            ranges.forEach(range => {
+                if (range.includes('-')) {
+                    const [start, end] = range.split('-').map(Number);
+                    if (!isNaN(start) && !isNaN(end)) {
+                        for (let i = start; i <= end; i++) indices.add(i - 1);
+                    }
+                } else {
+                    const page = Number(range);
+                    if (!isNaN(page)) indices.add(page - 1);
+                }
+            });
+            
+            wrappers.forEach((w, i) => {
+                if (indices.has(i)) targetWrappers.push(w as HTMLElement);
+            });
+        } else {
+            targetWrappers = Array.from(wrappers) as HTMLElement[];
+        }
+
+        if (targetWrappers.length === 0) {
+             // Fallback to all if range is invalid or empty
+             targetWrappers = Array.from(wrappers) as HTMLElement[];
+        }
+
+        const blobs: { blob: Blob, name: string }[] = [];
+
+        for (let i = 0; i < targetWrappers.length; i++) {
+            const wrapper = targetWrappers[i];
+            
+            // Dimensions
+             const isF4 = settings.paperSize === "f4";
+             const wMM = isF4 ? 330 : 297;
+             const hMM = isF4 ? 215 : 210;
+             const pixelWidth = Math.ceil(wMM * 3.7795);
+             const pixelHeight = Math.ceil(hMM * 3.7795);
+            
+             wrapper.style.width = `${pixelWidth}px`;
+             wrapper.style.height = `${pixelHeight}px`;
+             wrapper.style.margin = "0";
+             wrapper.style.padding = "0";
+             wrapper.style.boxSizing = "border-box";
+             wrapper.style.backgroundColor = "white"; 
+             
+            const card = wrapper.querySelector(".layout-card") as HTMLElement;
+            if (card) {
+                card.style.width = "100%";
+                card.style.height = "100%";
+                card.style.transform = "none";
+                card.style.boxShadow = "none";
+                card.style.border = "none";
+            }
+            
+            const cardRoot = wrapper.firstElementChild as HTMLElement;
+            if (cardRoot) {
+                 cardRoot.style.width = "100%";
+                 cardRoot.style.height = "100%";
+                 cardRoot.style.boxShadow = "none"; 
+                 cardRoot.style.border = "none"; 
+            }
+             
+             const canvas = await html2canvas(wrapper, {
+                scale: 2, 
+                useCORS: true,
+                logging: false,
+                backgroundColor: "#ffffff",
+                width: pixelWidth,
+                height: pixelHeight,
+                windowWidth: pixelWidth,
+                windowHeight: pixelHeight
+            } as any);
+
+            const mimeType = format === 'jpg' ? 'image/jpeg' : 'image/png';
+            const blob = await new Promise<Blob | null>(resolve => canvas.toBlob(resolve, mimeType, 0.95));
+            
+            if (blob) {
+                blobs.push({
+                    blob,
+                    name: `Page_${i + 1}.${format}`
+                });
+            }
+        }
+        
+        document.body.removeChild(cloned);
+
+        if (blobs.length === 1) {
+            const url = URL.createObjectURL(blobs[0].blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `${tabTitle.replace(/[^a-z0-9\s-_]/gi, "").trim() || "Layout"}.${format}`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+        } else if (blobs.length > 1) {
+            const zip = new JSZip();
+            blobs.forEach((item) => {
+                zip.file(item.name, item.blob);
+            });
+            
+            const content = await zip.generateAsync({ type: "blob" });
+            const url = URL.createObjectURL(content);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `${tabTitle.replace(/[^a-z0-9\s-_]/gi, "").trim() || "Layout"}.zip`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+        }
+
+    } catch (error) {
+        console.error("Image Export failed:", error);
+        alert(`Gagal mengekspor ${format.toUpperCase()}.`);
     } finally {
         setIsExporting(false);
         window.dispatchEvent(new CustomEvent("export-end"));
@@ -754,6 +1037,15 @@ export default function LayoutGenerator({
       }
     };
 
+    const handleExportImageEvent = (e: CustomEvent) => {
+      // Only process if tabId matches
+      if (e.detail && e.detail.tabId !== tabId) return;
+      
+      if (e.detail && e.detail.format) {
+        handleExportImage(e.detail.format, e.detail.pageRange);
+      }
+    };
+
     const handleExportJSON = async (e: CustomEvent) => {
       // Only process if tabId matches
       if (e.detail && e.detail.tabId !== tabId) return;
@@ -787,6 +1079,7 @@ export default function LayoutGenerator({
     window.addEventListener("undo-action", handleUndo);
     window.addEventListener("redo-action", handleRedo);
     window.addEventListener("print-action", handlePrint);
+    window.addEventListener("export-image-action", handleExportImageEvent as EventListener);
     window.addEventListener("upload-files", handleUploadEvent as EventListener);
     window.addEventListener("export-json-action", handleExportJSON as unknown as EventListener);
     window.addEventListener("toggle-grid", handleToggleGrid as EventListener);
@@ -801,6 +1094,7 @@ export default function LayoutGenerator({
       window.removeEventListener("undo-action", handleUndo);
       window.removeEventListener("redo-action", handleRedo);
       window.removeEventListener("print-action", handlePrint);
+      window.removeEventListener("export-image-action", handleExportImageEvent as EventListener);
       window.removeEventListener("upload-files", handleUploadEvent as EventListener);
       window.removeEventListener("export-json-action", handleExportJSON as unknown as EventListener);
       window.removeEventListener("toggle-grid", handleToggleGrid as EventListener);

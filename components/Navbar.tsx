@@ -41,7 +41,16 @@ export default function Navbar({
     setIsExporting(true);
     window.dispatchEvent(
       new CustomEvent("print-action", {
-        detail: { pageRange: pageRange.trim() },
+        detail: { pageRange: pageRange.trim(), tabId: activeTabId },
+      })
+    );
+  };
+
+  const handleExportImage = (format: 'png' | 'jpg') => {
+    setIsExporting(true);
+    window.dispatchEvent(
+      new CustomEvent("export-image-action", {
+        detail: { format, pageRange: pageRange.trim(), tabId: activeTabId },
       })
     );
   };
@@ -132,6 +141,14 @@ export default function Navbar({
             {
               label: "PDF",
               action: () => handlePrint(),
+            },
+            {
+              label: "PNG",
+              action: () => handleExportImage('png'),
+            },
+            {
+              label: "JPG",
+              action: () => handleExportImage('jpg'),
             },
             {
               label: "JSON",
@@ -416,6 +433,42 @@ export default function Navbar({
                 <div className="flex-1">
                   <div className="font-medium text-gray-700 text-sm">Cetak PDF</div>
                   <div className="text-[10px] text-gray-500">Terbaik untuk dokumen & print</div>
+                </div>
+                {isExporting && <i className="fa-solid fa-spinner fa-spin text-gray-400"></i>}
+              </button>
+
+              <button
+                className="w-full text-left px-3 py-2 cursor-pointer hover:bg-gray-50 rounded-lg flex items-center gap-3 transition-colors group"
+                onClick={() => {
+                  handleExportImage('png');
+                  setActiveMenu(null);
+                }}
+                disabled={isExporting}
+              >
+                <div className="w-8 h-8 bg-blue-50 text-blue-500 rounded-md flex items-center justify-center group-hover:bg-blue-100 transition-colors">
+                  <i className="fa-regular fa-image"></i>
+                </div>
+                <div className="flex-1">
+                  <div className="font-medium text-gray-700 text-sm">Gambar PNG</div>
+                  <div className="text-[10px] text-gray-500">Kualitas tinggi (Lossless)</div>
+                </div>
+                {isExporting && <i className="fa-solid fa-spinner fa-spin text-gray-400"></i>}
+              </button>
+
+              <button
+                className="w-full text-left px-3 py-2 cursor-pointer hover:bg-gray-50 rounded-lg flex items-center gap-3 transition-colors group"
+                onClick={() => {
+                  handleExportImage('jpg');
+                  setActiveMenu(null);
+                }}
+                disabled={isExporting}
+              >
+                <div className="w-8 h-8 bg-green-50 text-green-500 rounded-md flex items-center justify-center group-hover:bg-green-100 transition-colors">
+                  <i className="fa-regular fa-image"></i>
+                </div>
+                <div className="flex-1">
+                  <div className="font-medium text-gray-700 text-sm">Gambar JPG</div>
+                  <div className="text-[10px] text-gray-500">Ukuran file kecil</div>
                 </div>
                 {isExporting && <i className="fa-solid fa-spinner fa-spin text-gray-400"></i>}
               </button>
