@@ -1,13 +1,15 @@
 "use client";
 
+import { useState } from "react";
+
 interface UploadPanelProps {
   onUpload: (files: FileList) => void;
   onPrint?: () => void;
   isExporting?: boolean;
   cardCount: number;
   history: {
-    past: string[];
-    future: string[];
+    past: { action: string }[];
+    future: { action: string }[];
     onUndo: () => void;
     onRedo: () => void;
   };
@@ -26,6 +28,14 @@ export default function UploadPanel({
       e.target.value = ""; // Reset
     }
   };
+
+  const [showAllHistory, setShowAllHistory] = useState(false);
+  const maxHistoryItems = 20;
+
+  // Reverse the history to show newest first
+  const reversedHistory = [...history.past].reverse();
+  const displayHistory = showAllHistory ? reversedHistory : reversedHistory.slice(0, maxHistoryItems);
+  const hasMoreHistory = reversedHistory.length > maxHistoryItems;
 
   return (
     <div className="space-y-6">
@@ -69,7 +79,7 @@ export default function UploadPanel({
           </div>
 
           <div className="p-3 space-y-1 max-h-[250px] overflow-y-auto thin-scrollbar">
-            {history.past.length === 0 && (
+            {displayHistory.length === 0 && (
               <div className="flex flex-col items-center justify-center py-8 px-4 text-center">
                 <svg
                   className="w-8 h-8 text-gray-200 mb-2"
@@ -90,10 +100,7 @@ export default function UploadPanel({
               </div>
             )}
 
-            {history.past
-              .slice()
-              .reverse()
-              .map((action, i) => (
+            {displayHistory.map((action, i) => (
                 <div
                   key={i}
                   className={`
@@ -110,11 +117,29 @@ export default function UploadPanel({
                     <span
                       className={`font-semibold tracking-tight ${i === 0 ? "text-gray-900" : "text-gray-600"}`}
                     >
-                      {action}
+                      {action.action}
                     </span>
                   </div>
                 </div>
               ))}
+              
+              {hasMoreHistory && !showAllHistory && (
+                <button 
+                  onClick={() => setShowAllHistory(true)}
+                  className="w-full text-center text-[10px] text-blue-500 hover:text-blue-700 py-2 font-medium"
+                >
+                  Lihat lebih...
+                </button>
+              )}
+
+              {showAllHistory && (
+                 <button 
+                 onClick={() => setShowAllHistory(false)}
+                 className="w-full text-center text-[10px] text-gray-400 hover:text-gray-600 py-2 font-medium"
+               >
+                 Sembunyikan
+               </button>
+              )}
           </div>
         </div>
       </div>

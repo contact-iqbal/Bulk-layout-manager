@@ -837,8 +837,8 @@ export default function LayoutGenerator({
               onUpload={handleUpload}
               cardCount={cards.length}
               history={{
-                past: historyData.past.map((h) => h.action),
-                future: historyData.future.map((h) => h.action),
+                past: historyData.past.map((h) => ({ action: h.action })),
+                future: historyData.future.map((h) => ({ action: h.action })),
                 onUndo: undo,
                 onRedo: redo,
               }}

@@ -22,6 +22,76 @@ interface LayoutCardProps {
   paperSize?: "a4" | "f4";
 }
 
+interface BufferedInputProps extends Omit<React.InputHTMLAttributes<HTMLInputElement>, 'onChange'> {
+  value: string;
+  onCommit: (value: string) => void;
+  onChange?: (e: React.ChangeEvent<HTMLInputElement>) => void;
+}
+
+const BufferedInput = ({ value, onCommit, onChange, onBlur, ...props }: BufferedInputProps) => {
+  const [localValue, setLocalValue] = useState(value);
+
+  useEffect(() => {
+    setLocalValue(value);
+  }, [value]);
+
+  const handleBlur = (e: React.FocusEvent<HTMLInputElement>) => {
+    if (localValue !== value) {
+      onCommit(localValue);
+    }
+    if (onBlur) onBlur(e);
+  };
+
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setLocalValue(e.target.value);
+    if (onChange) onChange(e);
+  };
+
+  return (
+    <input
+      {...props}
+      value={localValue}
+      onChange={handleChange}
+      onBlur={handleBlur}
+    />
+  );
+};
+
+interface BufferedTextAreaProps extends Omit<React.TextareaHTMLAttributes<HTMLTextAreaElement>, 'onChange'> {
+  value: string;
+  onCommit: (value: string) => void;
+  onChange?: (e: React.ChangeEvent<HTMLTextAreaElement>) => void;
+}
+
+const BufferedTextArea = ({ value, onCommit, onChange, onBlur, ...props }: BufferedTextAreaProps) => {
+  const [localValue, setLocalValue] = useState(value);
+
+  useEffect(() => {
+    setLocalValue(value);
+  }, [value]);
+
+  const handleBlur = (e: React.FocusEvent<HTMLTextAreaElement>) => {
+    if (localValue !== value) {
+      onCommit(localValue);
+    }
+    if (onBlur) onBlur(e);
+  };
+
+  const handleChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    setLocalValue(e.target.value);
+    if (onChange) onChange(e);
+  };
+
+  return (
+    <textarea
+      {...props}
+      value={localValue}
+      onChange={handleChange}
+      onBlur={handleBlur}
+    />
+  );
+};
+
 export default function LayoutCard({
   data,
   settings,
@@ -157,10 +227,10 @@ export default function LayoutCard({
               loading="lazy"
             ></iframe>
           </div>
-          <input
+          <BufferedInput
             type="text"
             value={data.coords}
-            onChange={(e) => onUpdate(data.id, "coords", e.target.value)}
+            onCommit={(val) => onUpdate(data.id, "coords", val)}
             className="no-print text-[10px] w-full border p-1 mt-2 rounded font-mono text-gray-500 focus:text-gray-900 focus:border-orange-500 outline-none transition"
           />
         </div>
@@ -179,10 +249,10 @@ export default function LayoutCard({
                 </td>
                 <td>
                   :
-                  <input
+                  <BufferedInput
                     className="editable-input ml-1"
                     value={data.jenis}
-                    onChange={(e) => onUpdate(data.id, "jenis", e.target.value)}
+                    onCommit={(val) => onUpdate(data.id, "jenis", val)}
                   />
                 </td>
               </tr>
@@ -190,11 +260,11 @@ export default function LayoutCard({
                 <td className="text-gray-400 uppercase text-[10px]">Ukuran</td>
                 <td>
                   :{" "}
-                  <input
+                  <BufferedInput
                     className="editable-input"
                     value={data.ukuran}
-                    onChange={(e) =>
-                      onUpdate(data.id, "ukuran", e.target.value)
+                    onCommit={(val) =>
+                      onUpdate(data.id, "ukuran", val)
                     }
                   />
                 </td>
@@ -205,11 +275,11 @@ export default function LayoutCard({
                 </td>
                 <td>
                   :{" "}
-                  <input
+                  <BufferedInput
                     className="editable-input"
                     value={data.lokasi}
-                    onChange={(e) =>
-                      onUpdate(data.id, "lokasi", e.target.value)
+                    onCommit={(val) =>
+                      onUpdate(data.id, "lokasi", val)
                     }
                   />
                 </td>
@@ -219,11 +289,11 @@ export default function LayoutCard({
                   Keterangan -
                 </td>
                 <td>
-                  <textarea
+                  <BufferedTextArea
                     className="editable-input w-full"
                     value={data.keterangan}
-                    onChange={(e) =>
-                      onUpdate(data.id, "keterangan", e.target.value)
+                    onCommit={(val) =>
+                      onUpdate(data.id, "keterangan", val)
                     }
                   />
                 </td>
