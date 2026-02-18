@@ -473,7 +473,7 @@ export default function LayoutGenerator({
                 height: pixelHeight,
                 windowWidth: pixelWidth,
                 windowHeight: pixelHeight
-            });
+            } as any);
 
             const imgData = canvas.toDataURL("image/jpeg", 0.95);
             
