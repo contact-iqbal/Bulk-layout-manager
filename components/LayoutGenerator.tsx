@@ -234,6 +234,84 @@ export default function LayoutGenerator({
             el.parentNode?.replaceChild(replacement, el);
         });
 
+        // Convert Google Maps iframes to static images
+        // Since html2canvas cannot capture cross-origin iframes, we replace them with static map images
+        // We use Yandex Static Maps as a free fallback that doesn't require an API key for basic usage
+        const mapIframes = cloned.querySelectorAll('iframe');
+        const mapLoadPromises: Promise<void>[] = [];
+
+        mapIframes.forEach(iframe => {
+            const src = iframe.src;
+            // Extract coordinates from Google Maps Embed URL
+            // Format: https://www.google.com/maps?q=-6.9165,107.5913&...
+            const match = src.match(/q=([-\d\.,]+)/);
+            
+            if (match && match[1]) {
+                const coords = match[1].split(',');
+                if (coords.length === 2) {
+                    const lat = coords[0].trim();
+                    const lon = coords[1].trim();
+
+                    const img = document.createElement('img');
+                    img.crossOrigin = "anonymous"; // Important for html2canvas
+                    
+                    // Using Yandex Static Maps API (free, reliable, no key for basic use)
+                    // Note: Yandex uses lon,lat order. Google uses lat,lon.
+                    // l=map: Vector map layer (colorful, like Google Maps default)
+                    // lang=en_US: Ensure labels are in Latin/English, not Russian
+                    // pt parameter adds a marker
+                    img.src = `https://static-maps.yandex.ru/1.x/?ll=${lon},${lat}&z=16&l=map&lang=en_US&size=600,450&pt=${lon},${lat},pm2rdm`;
+                    
+                    // Copy styles to match iframe
+                    img.style.width = '100%';
+                    img.style.height = '100%';
+                    img.style.objectFit = 'cover';
+                    img.style.border = '0';
+                    img.style.position = 'absolute';
+                    img.style.inset = '0';
+                    
+                    const parent = iframe.parentNode;
+                    if (parent) {
+                            const loadPromise = new Promise<void>((resolve) => {
+                                img.onload = () => resolve();
+                                img.onerror = () => {
+                                    // Fallback if image fails (e.g. rate limit or network)
+                                    console.warn("Failed to load static map image");
+                                    // Create a placeholder
+                                    const placeholder = document.createElement('div');
+                                    placeholder.style.width = '100%';
+                                    placeholder.style.height = '100%';
+                                    placeholder.style.display = 'flex';
+                                    placeholder.style.alignItems = 'center';
+                                    placeholder.style.justifyContent = 'center';
+                                    placeholder.style.backgroundColor = '#f0f0f0';
+                                    placeholder.style.color = '#666';
+                                    placeholder.style.fontSize = '12px';
+                                    // Use lat/lon from closure
+                                    placeholder.innerHTML = `<div style="text-align:center">Map Preview<br/>${lat}, ${lon}</div>`;
+                                    
+                                    if (img.parentNode) {
+                                        img.parentNode.replaceChild(placeholder, img);
+                                    }
+                                    resolve();
+                                };
+                            });
+                        mapLoadPromises.push(loadPromise);
+                        
+                        parent.replaceChild(img, iframe);
+                    }
+                }
+            }
+        });
+
+        // Wait for all map images to load (with timeout)
+        if (mapLoadPromises.length > 0) {
+            await Promise.race([
+                Promise.all(mapLoadPromises),
+                new Promise(resolve => setTimeout(resolve, 5000)) // 5s timeout
+            ]);
+        }
+
         // Fix for "unsupported color function oklch/oklab" error in html2canvas
         // Tailwind CSS v4 uses oklch by default, which html2canvas doesn't support yet.
         // We traverse the cloned DOM and convert any oklch/oklab colors to RGB using a canvas context.
