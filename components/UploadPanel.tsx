@@ -57,15 +57,6 @@ export default function UploadPanel({
           {isExporting ? "Memproses PDF..." : "Cetak"}
         </button>
       )}
-      <div className="text-center space-y-2">
-        <p className="text-xs font-black text-gray-800">
-          {cardCount}{" "}
-          <span className="text-xs font-normal">Halaman terdeteksi</span>
-        </p>
-        <p className="text-[10px] text-gray-400 italic">
-          *Tampilan utama adalah preview cetak
-        </p>
-      </div>
 
       <div className="mt-6 w-full border-t border-gray-100 pt-4 px-2">
         <div className="bg-white border border-gray-200 rounded-md overflow-hidden">

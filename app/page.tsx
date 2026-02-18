@@ -5,12 +5,14 @@ import Navbar from "@/components/Navbar";
 import TabSystem from "@/components/TabSystem";
 import LayoutGenerator from "@/components/LayoutGenerator";
 import WelcomeModal from "@/components/WelcomeModal";
+import DownloadProgress from "@/components/DownloadProgress";
+import BottomNavbar from "@/components/BottomNavbar";
 import Cookies from "js-cookie";
 
 export default function Home() {
   // Tab State
   const [tabs, setTabs] = useState<
-    { id: string; title: string; content: React.ReactNode; canClose: boolean }[]
+    { id: string; title: string; content: React.ReactNode; canClose: boolean; initialData?: any }[]
   >([]);
   const [activeTabId, setActiveTabId] = useState("");
   const [isLoaded, setIsLoaded] = useState(false);
@@ -19,6 +21,36 @@ export default function Home() {
   >({});
   const [unsavedTabs, setUnsavedTabs] = useState<Set<string>>(new Set());
   const [showWelcomeModal, setShowWelcomeModal] = useState(false);
+  const [tabPageStatus, setTabPageStatus] = useState<
+    Record<string, { current: number; total: number }>
+  >({});
+  const [tabZoom, setTabZoom] = useState<Record<string, number>>({});
+
+  useEffect(() => {
+    const handleZoomUpdate = (e: CustomEvent) => {
+      const { tabId, zoom } = e.detail;
+      handleZoomChange(tabId, zoom);
+    };
+
+    window.addEventListener("zoom-update", handleZoomUpdate as EventListener);
+    return () => {
+      window.removeEventListener("zoom-update", handleZoomUpdate as EventListener);
+    };
+  }, []);
+
+  const handleZoomChange = (tabId: string, zoom: number) => {
+    setTabZoom((prev) => ({
+      ...prev,
+      [tabId]: zoom,
+    }));
+  };
+
+  const handlePageStatusChange = (tabId: string, current: number, total: number) => {
+    setTabPageStatus((prev) => ({
+      ...prev,
+      [tabId]: { current, total },
+    }));
+  };
 
   const handleSettingsChange = (tabId: string, settings: any) => {
     setTabSettings((prev) => ({
@@ -56,14 +88,7 @@ export default function Home() {
         // Reconstruct content component since it can't be JSON serialized
         const restoredTabs = parsedTabs.map((t: any) => ({
           ...t,
-          content: (
-            <LayoutGenerator
-              tabId={t.id}
-              tabTitle={t.title}
-              onSettingsChange={(s) => handleSettingsChange(t.id, s)}
-              onHistoryChange={(h) => handleHistoryChange(t.id, h)}
-            />
-          ),
+          content: null, // Will be rendered dynamically
         }));
         setTabs(restoredTabs);
         setActiveTabId(savedActiveTab || restoredTabs[0]?.id || "");
@@ -83,14 +108,7 @@ export default function Home() {
       {
         id: defaultId,
         title: "Layout Generator",
-        content: (
-          <LayoutGenerator
-            tabId={defaultId}
-            tabTitle="Layout Generator"
-            onSettingsChange={(s) => handleSettingsChange(defaultId, s)}
-            onHistoryChange={(h) => handleHistoryChange(defaultId, h)}
-          />
-        ),
+        content: null,
         canClose: false,
       },
     ]);
@@ -111,25 +129,34 @@ export default function Home() {
     Cookies.set("dlayout_active_tab", activeTabId, { expires: 365 });
   }, [tabs, activeTabId, isLoaded]);
 
-  const handleNewTab = (type: string, title: string) => {
+  const handleNewTab = (type: string, title: string, initialData?: any) => {
     const newId = `tab-${Date.now()}`;
-    const newTitle = `${title} ${tabs.length + 1}`;
     const newTab = {
       id: newId,
-      title: newTitle,
-      content: (
-        <LayoutGenerator
-          tabId={newId}
-          tabTitle={newTitle}
-          onSettingsChange={(s) => handleSettingsChange(newId, s)}
-          onHistoryChange={(h) => handleHistoryChange(newId, h)}
-        />
-      ),
+      title: title,
+      content: null,
       canClose: true,
+      initialData: initialData,
     };
-    setTabs([...tabs, newTab]);
+    setTabs((prev) => [...prev, newTab]);
     setActiveTabId(newId);
   };
+
+  // Render content dynamically based on state
+  const renderedTabs = tabs.map(t => ({
+    ...t,
+    content: (
+      <LayoutGenerator
+        tabId={t.id}
+        tabTitle={t.title}
+        onSettingsChange={(s) => handleSettingsChange(t.id, s)}
+        onHistoryChange={(h) => handleHistoryChange(t.id, h)}
+        onPageStatusChange={(c, total) => handlePageStatusChange(t.id, c, total)}
+        zoom={tabZoom[t.id] || 100}
+        initialData={t.initialData}
+      />
+    )
+  }));
 
   const handleTabClose = async (id: string) => {
     if (unsavedTabs.has(id)) {
@@ -196,6 +223,7 @@ export default function Home() {
 
   return (
     <div className="flex flex-col h-screen w-full">
+      <DownloadProgress />
       <WelcomeModal
         isOpen={showWelcomeModal}
         onClose={() => setShowWelcomeModal(false)}
@@ -206,26 +234,35 @@ export default function Home() {
       />
       <Navbar
         onUpload={(files) => {
-          // If active tab is LayoutGenerator, we might want to pass upload to it?
-          // Currently Navbar upload is global. We might need to context or ref to pass to active tab.
-          // For now, let's just log or open a new tab if needed.
-          // Ideally, the active LayoutGenerator should handle this.
-          // Since we extracted logic, we need a way to communicate.
-          // Implementation detail: For now, Navbar upload might need valid targets.
-          alert(
-            "Please use the Upload button inside the Layout Generator tab.",
-          );
+          // Dispatch custom event to target the active LayoutGenerator tab
+          if (activeTabId) {
+            window.dispatchEvent(
+              new CustomEvent("upload-files", {
+                detail: { files, tabId: activeTabId },
+              })
+            );
+          } else {
+             // Fallback if no tab is active (should not happen usually)
+             alert("Silakan buka tab terlebih dahulu.");
+          }
         }}
         onNewTab={handleNewTab}
         activeTabTitle={tabs.find((t) => t.id === activeTabId)?.title}
         activePaperSize={tabSettings[activeTabId]?.paperSize || "a4"}
+        activeTabId={activeTabId}
       />
       <TabSystem
-        tabs={tabs}
+        tabs={renderedTabs}
         activeTabId={activeTabId}
         onTabClick={setActiveTabId}
         onTabClose={handleTabClose}
         onTabRename={handleTabRename}
+      />
+      <BottomNavbar 
+        currentPage={tabPageStatus[activeTabId]?.current || 0}
+        totalPages={tabPageStatus[activeTabId]?.total || 0}
+        zoom={tabZoom[activeTabId] || 100}
+        onZoomChange={(zoom) => handleZoomChange(activeTabId, zoom)}
       />
     </div>
   );

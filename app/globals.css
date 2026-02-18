@@ -275,6 +275,35 @@
   overflow: hidden;
 } */
 
+/* 1. Mengatur ukuran scrollbar (lebar untuk vertikal, tinggi untuk horizontal) */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+/* 2. Track (Latar belakang scrollbar) */
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+/* 3. Thumb (Bagian yang digeser) */
+::-webkit-scrollbar-thumb {
+  background: rgba(0, 0, 0, 0.1);
+  /* Warna abu-abu transparan */
+  border-radius: 10px;
+  transition: background 0.3s ease;
+}
+
+/* 4. Efek Hover (Warna menjadi sedikit lebih gelap saat disentuh, persis Canva) */
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(0, 0, 0, 0.25);
+}
+
+/* Opsional: Jika Anda ingin scrollbar hanya muncul di dalam elemen tertentu yang memiliki class .thin-scrollbar */
+.thin-scrollbar::-webkit-scrollbar {
+  width: 4px;
+}
+
 .print-page {
   width: 1123px;        /* A4 landscape width */
   height: 794px;        /* A4 landscape height */

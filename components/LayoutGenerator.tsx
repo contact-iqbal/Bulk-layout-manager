@@ -31,6 +31,9 @@ interface LayoutGeneratorProps {
   tabTitle?: string;
   onSettingsChange?: (settings: Settings) => void;
   onHistoryChange?: (hasHistory: boolean) => void;
+  onPageStatusChange?: (current: number, total: number) => void;
+  zoom?: number;
+  initialData?: any;
 }
 
 export default function LayoutGenerator({
@@ -38,6 +41,9 @@ export default function LayoutGenerator({
   tabTitle = "Layout",
   onSettingsChange,
   onHistoryChange,
+  onPageStatusChange,
+  zoom = 100,
+  initialData,
 }: LayoutGeneratorProps) {
   const [activeLeftPanel, setActiveLeftPanel] = useState<
     "upload" | "settings" | null
@@ -46,6 +52,7 @@ export default function LayoutGenerator({
   const [hasLoaded, setHasLoaded] = useState(false);
   const contentRef = useRef<HTMLDivElement>(null);
   const [isExporting, setIsExporting] = useState(false);
+  const [showGrid, setShowGrid] = useState(false);
 
   // Settings State
   const [settings, setSettings] = useState<Settings>({
@@ -56,10 +63,27 @@ export default function LayoutGenerator({
     paperSize: "a4",
   });
 
+  // Refs for callbacks to avoid dependency cycles
+  const onSettingsChangeRef = useRef(onSettingsChange);
+  const onHistoryChangeRef = useRef(onHistoryChange);
+  const onPageStatusChangeRef = useRef(onPageStatusChange);
+
+  useEffect(() => {
+    onSettingsChangeRef.current = onSettingsChange;
+  }, [onSettingsChange]);
+
+  useEffect(() => {
+    onHistoryChangeRef.current = onHistoryChange;
+  }, [onHistoryChange]);
+
+  useEffect(() => {
+    onPageStatusChangeRef.current = onPageStatusChange;
+  }, [onPageStatusChange]);
+
   // Notify parent when settings change
   useEffect(() => {
-    onSettingsChange?.(settings);
-  }, [settings, onSettingsChange]);
+    onSettingsChangeRef.current?.(settings);
+  }, [settings]);
 
   // History State
   const {
@@ -73,26 +97,99 @@ export default function LayoutGenerator({
     history: historyData,
   } = useHistory<CardData[]>([]);
 
+  // Page Tracking
+  useEffect(() => {
+    // Notify parent about total pages
+    onPageStatusChangeRef.current?.(1, cards.length); // Default to page 1
+
+    const container = document.getElementById("cards-container");
+    if (!container) return;
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        // Find the card that is most visible
+        entries.forEach((entry) => {
+          if (entry.isIntersecting && entry.intersectionRatio >= 0.5) {
+            const index = parseInt(entry.target.getAttribute("data-index") || "0");
+            onPageStatusChangeRef.current?.(index + 1, cards.length);
+          }
+        });
+      },
+      {
+        root: null, // viewport
+        threshold: 0.5, // 50% visibility
+      }
+    );
+
+    const cardElements = container.querySelectorAll(".layout-card-wrapper");
+    cardElements.forEach((el) => observer.observe(el));
+
+    return () => observer.disconnect();
+  }, [cards.length]);
+
   // --- Handlers ---
 
   // PDF Export Handler
-  const handleDownloadPDF = async () => {
+  const handleDownloadPDF = async (pageRange?: string) => {
     if (!contentRef.current) return;
     setIsExporting(true);
+    
+    // Dispatch custom event for loading indicator
+    window.dispatchEvent(new CustomEvent("export-start", { 
+      detail: { fileName: `${tabTitle.replace(/[^a-z0-9\s-_]/gi, "").trim() || "Layout"}.pdf` } 
+    }));
 
     const element = contentRef.current.querySelector(
       "#cards-container",
     ) as HTMLElement;
-    const cloned = element.cloneNode(true)
+    
     if (!element) {
       setIsExporting(false);
       return;
     }
 
+    const cloned = element.cloneNode(true) as HTMLElement;
+    
+    // Filter pages based on pageRange if provided
+    if (pageRange) {
+      const cardWrappers = cloned.querySelectorAll(".layout-card-wrapper");
+      const pagesToKeep = new Set<number>();
+      
+      // Parse page range "1,3,5-7"
+      const parts = pageRange.split(",");
+      parts.forEach(part => {
+        const range = part.trim().split("-");
+        if (range.length === 1) {
+          const page = parseInt(range[0]);
+          if (!isNaN(page)) pagesToKeep.add(page);
+        } else if (range.length === 2) {
+          const start = parseInt(range[0]);
+          const end = parseInt(range[1]);
+          if (!isNaN(start) && !isNaN(end)) {
+            for (let i = start; i <= end; i++) pagesToKeep.add(i);
+          }
+        }
+      });
+
+      // Remove cards not in range (using 1-based indexing)
+      cardWrappers.forEach((wrapper, index) => {
+        if (!pagesToKeep.has(index + 1)) {
+          wrapper.remove();
+        }
+      });
+
+      // If no cards left, alert and stop
+      if (cloned.querySelectorAll(".layout-card-wrapper").length === 0) {
+        alert("Tidak ada halaman yang cocok dengan rentang yang dipilih.");
+        setIsExporting(false);
+        window.dispatchEvent(new CustomEvent("export-end"));
+        return;
+      }
+    }
+
     const opt = {
       margin: [0, 0, 0, 0] as [number, number, number, number],
-      // filename: `${tabTitle.replace(/[^a-z0-9]/gi, "_").toLowerCase()}.pdf`,
-      filename: `generated_${new Date(Date.now()).toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' })}.pdf`,
+      filename: `${tabTitle.replace(/[^a-z0-9\s-_]/gi, "").trim() || "Layout"}.pdf`,
       image: { type: "jpeg", quality: 0.98 },
       html2canvas: {
         scale: 2,
@@ -117,6 +214,7 @@ export default function LayoutGenerator({
       console.error("PDF Export failed:", error);
     } finally {
       setIsExporting(false);
+      window.dispatchEvent(new CustomEvent("export-end"));
     }
   };
 
@@ -222,25 +320,59 @@ export default function LayoutGenerator({
         (localStorage.getItem("settings_paperSize") as any) ||
         settings.paperSize,
     };
+    
+    // If initialData is provided, use it to override settings
+    if (initialData && initialData.settings) {
+       Object.assign(savedSettings, initialData.settings);
+    }
+
     setSettings(savedSettings);
     setHasLoaded(false);
 
     const fetchData = async () => {
       try {
-        const loadedCards = await getAllCards(tabId);
-        const savedHistory = await getHistoryFromDB(tabId);
-        if (savedHistory) {
-          reset(savedHistory.past, loadedCards, savedHistory.future);
+        if (initialData && initialData.cards) {
+          // Initialize from initialData (Imported JSON)
+          const newCards = initialData.cards.map((c: CardData) => ({
+             ...c,
+             tabId: tabId // Remap to current tabId
+          }));
+
+          // Save to DB immediately to persist this new tab's data
+          // Clear any existing data for this tabId just in case (though likely empty)
+          const existing = await getAllCards(tabId);
+          for (const c of existing) await deleteCardFromDB(c.id);
+          
+          for (const c of newCards) {
+             await saveCardToDB(c);
+          }
+
+          // Handle History
+          if (initialData.history) {
+             reset(initialData.history.past, newCards, initialData.history.future);
+             await saveHistoryToDB(tabId, initialData.history.past, initialData.history.future);
+          } else {
+             reset([], newCards, []);
+          }
+
+          setHasLoaded(true);
         } else {
-          reset([], loadedCards, []);
+          // Normal load from DB
+          const loadedCards = await getAllCards(tabId);
+          const savedHistory = await getHistoryFromDB(tabId);
+          if (savedHistory) {
+            reset(savedHistory.past, loadedCards, savedHistory.future);
+          } else {
+            reset([], loadedCards, []);
+          }
+          setHasLoaded(true);
         }
-        setHasLoaded(true);
       } catch (error) {
         console.error("Failed to load data:", error);
       }
     };
     fetchData();
-  }, [tabId, reset]);
+  }, [tabId, reset, initialData]);
 
   // 2. Sync with DB
   useEffect(() => {
@@ -260,10 +392,10 @@ export default function LayoutGenerator({
   useEffect(() => {
     if (!hasLoaded) return;
     saveHistoryToDB(tabId, historyData.past, historyData.future);
-    onHistoryChange?.(historyData.past.length > 0);
-  }, [historyData.past, historyData.future, tabId, hasLoaded, onHistoryChange]);
+    onHistoryChangeRef.current?.(historyData.past.length > 0);
+  }, [historyData.past, historyData.future, tabId, hasLoaded]);
 
-  // 4. Global Events (Undo, Redo, Print)
+  // 4. Global Events (Undo, Redo, Print, Zoom)
   useEffect(() => {
     const handleUndo = () => {
       const el = document.getElementById(`layout-generator-${tabId}`);
@@ -273,21 +405,101 @@ export default function LayoutGenerator({
       const el = document.getElementById(`layout-generator-${tabId}`);
       if (el && el.offsetParent !== null) redo();
     };
-    const handlePrint = () => {
+    const handlePrint = (e: Event) => {
+      const customEvent = e as CustomEvent;
+      const pageRange = customEvent.detail?.pageRange;
       const el = document.getElementById(`layout-generator-${tabId}`);
-      if (el && el.offsetParent !== null) handleDownloadPDF();
+      if (el && el.offsetParent !== null) handleDownloadPDF(pageRange);
+    };
+
+    // Zoom shortcuts - handled by event listener above, but need actual implementation here or parent.
+    // Since props are read-only, we emit event.
+    // The implementation inside useEffect is correct for dispatching.
+    
+    // We need to listen to the custom event in the parent (page.tsx) or here if we had local state.
+    // Since zoom is controlled by parent, we just dispatch the request.
+    
+    // However, to make it work seamlessly, we need to add the listener for the custom event we just dispatched?
+    // No, the parent should listen to it.
+    
+    const handleWheel = (e: WheelEvent) => {
+        if (e.ctrlKey) {
+            e.preventDefault();
+            // Calculate new zoom based on direction
+            const delta = e.deltaY > 0 ? -5 : 5;
+            // We need to use the current zoom prop
+            const currentZoom = zoom;
+            const newZoom = Math.max(25, Math.min(200, currentZoom + delta));
+            
+            // Dispatch event for parent to update state
+            window.dispatchEvent(new CustomEvent("zoom-update", { 
+                detail: { tabId, zoom: newZoom } 
+            }));
+        }
+    };
+
+    const handleUploadEvent = (e: CustomEvent) => {
+      // Check if the event is for this tab
+      if (e.detail && e.detail.tabId === tabId && e.detail.files) {
+        handleUpload(e.detail.files);
+      }
+    };
+
+    const handleExportJSON = async (e: CustomEvent) => {
+      // Only process if tabId matches
+      if (e.detail && e.detail.tabId !== tabId) return;
+
+      const dbCards = await getAllCards(tabId);
+      const dbHistory = await getHistoryFromDB(tabId);
+      
+      const exportData = {
+        version: "1.0",
+        tabTitle,
+        settings,
+        cards: dbCards,
+        history: dbHistory,
+        timestamp: Date.now()
+      };
+
+      const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(exportData));
+      const downloadAnchorNode = document.createElement('a');
+      downloadAnchorNode.setAttribute("href", dataStr);
+      downloadAnchorNode.setAttribute("download", `${tabTitle.replace(/[^a-z0-9\s-_]/gi, "").trim() || "layout"}.json`);
+      document.body.appendChild(downloadAnchorNode); // required for firefox
+      downloadAnchorNode.click();
+      downloadAnchorNode.remove();
+    };
+
+    const handleToggleGrid = (e: Event) => {
+        const customEvent = e as CustomEvent;
+        setShowGrid(customEvent.detail?.show);
     };
 
     window.addEventListener("undo-action", handleUndo);
     window.addEventListener("redo-action", handleRedo);
     window.addEventListener("print-action", handlePrint);
+    window.addEventListener("upload-files", handleUploadEvent as EventListener);
+    window.addEventListener("export-json-action", handleExportJSON as unknown as EventListener);
+    window.addEventListener("toggle-grid", handleToggleGrid as EventListener);
+    
+    // Use a more specific target if possible, or window with filter
+    const container = document.getElementById(`layout-generator-${tabId}`);
+    if (container) {
+        container.addEventListener("wheel", handleWheel as EventListener, { passive: false });
+    }
 
     return () => {
       window.removeEventListener("undo-action", handleUndo);
       window.removeEventListener("redo-action", handleRedo);
       window.removeEventListener("print-action", handlePrint);
+      window.removeEventListener("upload-files", handleUploadEvent as EventListener);
+      window.removeEventListener("export-json-action", handleExportJSON as unknown as EventListener);
+      window.removeEventListener("toggle-grid", handleToggleGrid as EventListener);
+      if (container) {
+          container.removeEventListener("wheel", handleWheel as EventListener);
+      }
     };
-  }, [undo, redo, tabId, handleDownloadPDF]);
+  }, [undo, redo, tabId, handleDownloadPDF, zoom]);
 
   return (
     <div
@@ -332,8 +544,19 @@ export default function LayoutGenerator({
       <div
         id="main-content"
         ref={contentRef}
-        className="flex-1 overflow-y-auto px-20 py-10 flex flex-col items-center bg-gray-100 h-full"
+        className="flex-1 overflow-y-auto px-20 py-10 flex flex-col items-center bg-gray-100 h-full relative"
       >
+        {showGrid && (
+          <div 
+            className="absolute inset-0 pointer-events-none z-0" 
+            style={{
+              backgroundImage: `linear-gradient(#e5e7eb 1px, transparent 1px), linear-gradient(90deg, #e5e7eb 1px, transparent 1px)`,
+              backgroundSize: `${40 * (zoom / 100)}px ${40 * (zoom / 100)}px`,
+              backgroundPosition: "center top",
+            }}
+          />
+        )}
+        
         {cards.length === 0 ? (
           <div className="text-center text-gray-400 mt-20">
             <svg
@@ -354,12 +577,17 @@ export default function LayoutGenerator({
         ) : (
           <div
             id="cards-container"
-            className="grid gap-8 w-fit"
+            className="grid gap-8 w-fit origin-top transition-transform duration-200"
+            style={{ transform: `scale(${zoom / 100})` }}
           >
             {cards.map((card, index) => (
-              <LayoutCard
-                key={card.id}
-                data={card}
+              <div 
+                key={card.id} 
+                className="layout-card-wrapper" 
+                data-index={index}
+              >
+                <LayoutCard
+                  data={card}
                 settings={settings}
                 onUpdate={updateCard}
                 onDelete={deleteCard}
@@ -368,6 +596,7 @@ export default function LayoutGenerator({
                 isLast={index === cards.length - 1}
                 paperSize={settings.paperSize}
               />
+              </div>
             ))}
           </div>
         )}

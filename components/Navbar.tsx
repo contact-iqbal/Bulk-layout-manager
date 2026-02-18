@@ -4,30 +4,56 @@ import { useRef, useState, useEffect } from "react";
 
 interface NavbarProps {
   onUpload: (files: FileList) => void;
-  onNewTab?: (type: string, title: string) => void;
+  onNewTab?: (type: string, title: string, initialData?: any) => void;
   activeTabTitle?: string;
   activePaperSize?: "a4" | "f4";
+  activeTabId?: string;
 }
 
 export default function Navbar({ 
   onUpload, 
   onNewTab, 
   activeTabTitle = "Desain Tanpa Judul", 
-  activePaperSize = "a4" 
+  activePaperSize = "a4",
+  activeTabId
 }: NavbarProps) {
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const jsonInputRef = useRef<HTMLInputElement>(null);
   const [activeMenu, setActiveMenu] = useState<string | null>(null);
   const [isExporting, setIsExporting] = useState(false);
+  const [pageRange, setPageRange] = useState("");
+  const [showGrid, setShowGrid] = useState(false);
 
   const paperDimensions = activePaperSize === "a4" ? "210 x 297 mm" : "215 x 330 mm";
 
+  useEffect(() => {
+    const handleExportEnd = () => setIsExporting(false);
+    window.dispatchEvent(new CustomEvent("toggle-grid", { detail: { show: showGrid } }));
+    window.addEventListener("export-end", handleExportEnd);
+    return () => window.removeEventListener("export-end", handleExportEnd);
+  }, [showGrid]);
+
+  const toggleGrid = () => {
+    setShowGrid(prev => !prev);
+  };
+
   const handlePrint = () => {
     setIsExporting(true);
-    window.dispatchEvent(new CustomEvent("print-action"));
-    // Since we don't know when export finishes here easily,
-    // reset after a delay or just leave it clickable.
-    // Ideally we'd use a shared state or store.
-    setTimeout(() => setIsExporting(false), 2000);
+    window.dispatchEvent(
+      new CustomEvent("print-action", {
+        detail: { pageRange: pageRange.trim() },
+      })
+    );
+  };
+
+  const handleExportJSON = () => {
+    if (activeTabId) {
+      window.dispatchEvent(
+        new CustomEvent("export-json-action", { detail: { tabId: activeTabId } })
+      );
+    } else {
+      alert("Tidak ada tab yang aktif.");
+    }
   };
 
   const handleFileClick = () => {
@@ -35,9 +61,36 @@ export default function Navbar({
     setActiveMenu(null);
   };
 
+  const handleJSONClick = () => {
+    jsonInputRef.current?.click();
+    setActiveMenu(null);
+  };
+
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files.length > 0) {
       onUpload(e.target.files);
+      e.target.value = ""; // Reset
+    }
+  };
+
+  const handleJSONChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files.length > 0) {
+      const file = e.target.files[0];
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        try {
+          const json = JSON.parse(event.target?.result as string);
+          if (json.version && json.cards) {
+            onNewTab?.("layout", json.tabTitle || "Imported Layout", json);
+          } else {
+            alert("File JSON tidak valid atau rusak!");
+          }
+        } catch (error) {
+          console.error("Invalid JSON file", error);
+          alert("File JSON tidak valid!");
+        }
+      };
+      reader.readAsText(file);
       e.target.value = ""; // Reset
     }
   };
@@ -55,6 +108,39 @@ export default function Navbar({
   };
 
   const menuItems = [
+    {
+      label: "File",
+      items: [
+        {
+          label: "Upload",
+          shortcut: "Ctrl+O",
+          action: () => handleFileClick(),
+        },
+        {
+          label: "Open File",
+          shortcut: "Ctrl+Shift+O",
+          action: () => handleJSONClick(),
+        },
+        {
+          label: "Save As",
+          shortcut: "Ctrl+Shift+S",
+          action: () => handleExportJSON(),
+        },
+        {
+          label: "Export",
+          children: [
+            {
+              label: "PDF",
+              action: () => handlePrint(),
+            },
+            {
+              label: "JSON",
+              action: () => handleExportJSON(),
+            },
+          ],
+        },
+      ],
+    },
     {
       label: "Edit",
       items: [
@@ -78,6 +164,11 @@ export default function Navbar({
           shortcut: "Ctrl+Alt+T",
           action: () => onNewTab?.("layout", "Layout Generator"),
         },
+        {
+          label: "Enable Grid",
+          shortcut: "Ctrl+'",
+          action: () => toggleGrid(),
+        },
       ],
     },
   ];
@@ -90,10 +181,20 @@ export default function Navbar({
         e.preventDefault();
         onNewTab?.("layout", "Layout Generator");
       }
-      // Ctrl+O for Open File
-      if (e.ctrlKey && (e.key === "o" || e.key === "O")) {
+      // Ctrl+O for Upload (Image)
+      if (e.ctrlKey && !e.shiftKey && (e.key === "o" || e.key === "O")) {
         e.preventDefault();
         handleFileClick();
+      }
+      // Ctrl+Shift+O for Open File (JSON)
+      if (e.ctrlKey && e.shiftKey && (e.key === "o" || e.key === "O")) {
+        e.preventDefault();
+        handleJSONClick();
+      }
+      // Ctrl+Shift+S for Save As (JSON)
+      if (e.ctrlKey && e.shiftKey && (e.key === "s" || e.key === "S")) {
+        e.preventDefault();
+        handleExportJSON();
       }
       // Ctrl+Z for Undo
       if (e.ctrlKey && !e.shiftKey && (e.key === "z" || e.key === "Z")) {
@@ -113,6 +214,11 @@ export default function Navbar({
         e.preventDefault();
         handlePrint();
       }
+      // Ctrl+' for Toggle Grid
+      if (e.ctrlKey && e.key === "'") {
+        e.preventDefault();
+        toggleGrid();
+      }
     };
 
     window.addEventListener("keydown", handleKeyDown);
@@ -128,6 +234,13 @@ export default function Navbar({
         className="hidden"
         multiple
         accept="image/*"
+      />
+      <input
+        type="file"
+        ref={jsonInputRef}
+        onChange={handleJSONChange}
+        className="hidden"
+        accept=".json"
       />
 
       <div className="mr-4 flex items-center">
@@ -157,23 +270,55 @@ export default function Navbar({
                 className="absolute top-full left-0 bg-white border border-gray-200 shadow-lg rounded-md py-1 min-w-[200px] z-50"
                 onClick={(e) => e.stopPropagation()}
               >
-                {menu.items.map((item, idx) => (
-                  <button
-                    key={idx}
-                    className="w-full text-left px-4 py-1.5 hover:bg-blue-500 hover:text-white flex justify-between items-center group"
-                    onClick={() => {
-                      item.action?.();
-                      setActiveMenu(null);
-                    }}
-                  >
-                    <span className="opacity-90">{item.label}</span>
-                    {item.shortcut && (
-                      <span className="ml-4 opacity-50 text-[10px] group-hover:text-white group-hover:opacity-80">
-                        {item.shortcut}
-                      </span>
-                    )}
-                  </button>
-                ))}
+                {menu.items.map((item, idx) => {
+                  // Check if item has children (submenu)
+                  if ((item as any).children) {
+                    return (
+                      <div key={idx} className="relative group/submenu w-full">
+                        <button
+                          className="w-full text-left px-4 py-1.5 hover:bg-blue-500 hover:text-white flex justify-between items-center group"
+                        >
+                          <span className="opacity-90">{item.label}</span>
+                          <i className="fa-solid fa-chevron-right text-[10px] ml-auto opacity-50 group-hover:text-white"></i>
+                        </button>
+                        {/* Submenu */}
+                        <div className="absolute left-full top-0 hidden group-hover/submenu:block bg-white border border-gray-200 shadow-lg rounded-md py-1 min-w-[150px] -ml-1 mt-0">
+                          {(item as any).children.map((child: any, cIdx: number) => (
+                            <button
+                              key={cIdx}
+                              className="w-full text-left px-4 py-1.5 hover:bg-blue-500 hover:text-white flex justify-between items-center"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                child.action?.();
+                                setActiveMenu(null);
+                              }}
+                            >
+                              <span className="opacity-90">{child.label}</span>
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    );
+                  }
+
+                  return (
+                    <button
+                      key={idx}
+                      className="w-full text-left px-4 py-1.5 hover:bg-blue-500 hover:text-white flex justify-between items-center group"
+                      onClick={() => {
+                        item.action?.();
+                        setActiveMenu(null);
+                      }}
+                    >
+                      <span className="opacity-90">{item.label}</span>
+                      {item.shortcut && (
+                        <span className="ml-4 opacity-50 text-[10px] group-hover:text-white group-hover:opacity-80">
+                          {item.shortcut}
+                        </span>
+                      )}
+                    </button>
+                  );
+                })}
               </div>
             )}
           </div>
@@ -192,7 +337,7 @@ export default function Navbar({
               : "bg-white hover:bg-gray-50 text-gray-700 border border-gray-200"
           }`}
         >
-          <span>Bagikan</span>
+          <span><i className="fa-solid fa-share"></i> Bagikan</span>
           <i className="fa-solid fa-chevron-down text-[10px] ml-1 opacity-70"></i>
         </button>
 
@@ -211,6 +356,24 @@ export default function Navbar({
                    <p className="text-[10px] text-gray-500 uppercase">{activePaperSize} • {paperDimensions}</p>
                 </div>
               </div>
+
+              {/* Page Range Input */}
+              <div className="mb-3">
+                <label className="text-[10px] text-gray-500 font-semibold uppercase mb-1 block">
+                  Halaman (Opsional)
+                </label>
+                <input
+                  type="text"
+                  placeholder="Contoh: 1, 3, 5-8"
+                  value={pageRange}
+                  onChange={(e) => setPageRange(e.target.value)}
+                  className="w-full text-xs border border-gray-300 rounded px-2 py-1.5 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-colors"
+                />
+                <p className="text-[9px] text-gray-400 mt-1">
+                  Kosongkan untuk mengunduh semua halaman
+                </p>
+              </div>
+
               <button 
                 className="w-full bg-blue-600 cursor-pointer hover:bg-blue-700 text-white py-2 rounded-md font-medium transition-colors flex items-center justify-center gap-2"
                 onClick={() => {

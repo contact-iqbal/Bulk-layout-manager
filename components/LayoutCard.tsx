@@ -53,68 +53,76 @@ export default function LayoutCard({
       {/* Dropdown Menu */}
       <div
         ref={menuRef}
-        className="no-print absolute -right-12 top-0 z-50 flex flex-col items-center"
+        className="no-print absolute right-4 top-4 z-50 flex flex-col items-end"
       >
         <button
-          onClick={() => setIsMenuOpen(!isMenuOpen)}
-          className="rounded-md w-8 h-8 flex items-center justify-center bg-white border-2 border-neutral-200 shadow-sm transition hover:bg-neutral-50 hover:scale-110"
-          title="Menu"
+          onClick={(e) => {
+            e.stopPropagation();
+            setIsMenuOpen(!isMenuOpen);
+          }}
+          className="rounded-full w-8 h-8 flex items-center justify-center bg-white/80 hover:bg-white border border-gray-200 shadow-sm backdrop-blur-sm transition-all hover:shadow-md"
+          title="Opsi Kartu"
         >
-          <i className="fa-solid fa-ellipsis-vertical text-gray-500"></i>
+          <i className="fa-solid fa-ellipsis-vertical text-gray-600"></i>
         </button>
 
         {isMenuOpen && (
-          <div className="absolute top-10 right-0 bg-white border border-neutral-200 rounded-lg py-2">
+          <div className="absolute top-10 right-0 bg-white border border-gray-200 shadow-xl rounded-lg py-1.5 w-48 animate-in fade-in slide-in-from-top-2 duration-200 z-[60]">
             <button
-              onClick={() => {
-                onCopy(data.id);
-                setIsMenuOpen(false);
-              }}
-              className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-blue-50 hover:text-blue-600 flex items-center gap-2 transition font-medium"
-            >
-              <i className="fa-solid fa-copy w-4"></i>
-            </button>
-            <button
-              onClick={() => {
+              onClick={(e) => {
+                e.stopPropagation();
                 onMoveDown(data.id);
                 setIsMenuOpen(false);
               }}
               disabled={isLast}
-              className={`w-full text-left px-4 py-2 text-sm flex items-center gap-2 transition font-medium ${
+              className={`w-full text-left px-4 py-2.5 text-xs flex items-center gap-3 transition font-medium ${
                 isLast
                   ? "text-gray-300 cursor-not-allowed"
-                  : "text-gray-700 hover:bg-orange-50 hover:text-orange-600"
+                  : "text-gray-700 hover:bg-gray-50 hover:text-gray-900"
               }`}
             >
-              <i className="fa-solid fa-arrow-down w-4"></i>
+              <i className="fa-solid fa-arrow-down w-3.5 text-center"></i>
+              <span>Pindah ke Bawah</span>
             </button>
-            <div className="my-1 border-t border-neutral-100"></div>
+            
             <button
-              onClick={() => {
+              onClick={(e) => {
+                e.stopPropagation();
+                onCopy(data.id);
+                setIsMenuOpen(false);
+              }}
+              className="w-full text-left px-4 py-2.5 text-xs text-gray-700 hover:bg-gray-50 hover:text-gray-900 flex items-center gap-3 transition font-medium"
+            >
+              <i className="fa-solid fa-copy w-3.5 text-center"></i>
+              <span>Duplikat Kartu</span>
+            </button>
+
+            <div className="my-1 border-t border-gray-100"></div>
+            
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
                 setIsMenuOpen(false);
                 Swal.fire({
                   title: "Hapus layout ini?",
-                  text: "Apakah anda yakin ingin menghapus layout ini?",
+                  text: "Tindakan ini tidak dapat dibatalkan!",
                   icon: "warning",
                   showCancelButton: true,
                   confirmButtonColor: "#d33",
                   cancelButtonColor: "#3085d6",
                   confirmButtonText: "Ya, Hapus!",
                   cancelButtonText: "Batal",
+                  reverseButtons: true
                 }).then((result) => {
                   if (result.isConfirmed) {
                     onDelete(data.id);
-                    Swal.fire(
-                      "Terhapus!",
-                      "Layout berhasil dihapus.",
-                      "success",
-                    );
                   }
                 });
               }}
-              className="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50 flex items-center gap-2 transition font-bold"
+              className="w-full text-left px-4 py-2.5 text-xs text-red-600 hover:bg-red-50 flex items-center gap-3 transition font-bold"
             >
-              <i className="fa-solid fa-trash w-4"></i>
+              <i className="fa-solid fa-trash w-3.5 text-center"></i>
+              <span>Hapus Kartu</span>
             </button>
           </div>
         )}
