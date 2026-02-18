@@ -141,7 +141,7 @@ export default function LayoutCard({
       </div>
 
       <div className="flex gap-8 mb-10 flex-1 min-h-0">
-        <div className="w-2/3 h-full relative">
+        <div className="w-2/3 aspect-video relative">
           {/* Using standard img tag for blob/dataUrl usually better for local previews than next/image if optimization not needed */}
           <img
             src={data.imgSrc}

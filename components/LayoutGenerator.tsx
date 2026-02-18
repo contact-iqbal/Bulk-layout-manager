@@ -463,6 +463,23 @@ export default function LayoutGenerator({
                  cardRoot.style.border = "none"; 
              }
 
+            // Force 16:9 aspect ratio for uploaded images
+            // html2canvas might not fully support aspect-ratio CSS, so we set explicit height
+            const uploadImg = wrapper.querySelector('img[alt="Upload"]') as HTMLImageElement;
+            if (uploadImg && uploadImg.parentElement) {
+                const imgContainer = uploadImg.parentElement;
+                // Get the computed width of the container
+                const containerWidth = imgContainer.offsetWidth;
+                if (containerWidth > 0) {
+                    // Force height to be 16:9 of width
+                    imgContainer.style.height = `${containerWidth * 9 / 16}px`;
+                    // Ensure image covers the container
+                    uploadImg.style.width = "100%";
+                    uploadImg.style.height = "100%";
+                    uploadImg.style.objectFit = "cover";
+                }
+            }
+
             // Render
             const canvas = await html2canvas(wrapper, {
                 scale: 2, 
