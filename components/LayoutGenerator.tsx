@@ -29,12 +29,14 @@ interface LayoutGeneratorProps {
   tabId: string;
   tabTitle?: string;
   onSettingsChange?: (settings: Settings) => void;
+  onHistoryChange?: (hasHistory: boolean) => void;
 }
 
 export default function LayoutGenerator({
   tabId,
   tabTitle = "Layout",
   onSettingsChange,
+  onHistoryChange,
 }: LayoutGeneratorProps) {
   const [activeLeftPanel, setActiveLeftPanel] = useState<
     "upload" | "settings" | null
@@ -253,7 +255,8 @@ export default function LayoutGenerator({
   useEffect(() => {
     if (!hasLoaded) return;
     saveHistoryToDB(tabId, historyData.past, historyData.future);
-  }, [historyData.past, historyData.future, tabId, hasLoaded]);
+    onHistoryChange?.(historyData.past.length > 0);
+  }, [historyData.past, historyData.future, tabId, hasLoaded, onHistoryChange]);
 
   // 4. Global Events (Undo, Redo, Print)
   useEffect(() => {

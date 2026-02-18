@@ -14,7 +14,10 @@ export default function Home() {
   >([]);
   const [activeTabId, setActiveTabId] = useState("");
   const [isLoaded, setIsLoaded] = useState(false);
-  const [tabSettings, setTabSettings] = useState<Record<string, { paperSize: "a4" | "f4" }>>({});
+  const [tabSettings, setTabSettings] = useState<
+    Record<string, { paperSize: "a4" | "f4" }>
+  >({});
+  const [unsavedTabs, setUnsavedTabs] = useState<Set<string>>(new Set());
   const [showWelcomeModal, setShowWelcomeModal] = useState(false);
 
   const handleSettingsChange = (tabId: string, settings: any) => {
@@ -22,6 +25,18 @@ export default function Home() {
       ...prev,
       [tabId]: { paperSize: settings.paperSize },
     }));
+  };
+
+  const handleHistoryChange = (tabId: string, hasHistory: boolean) => {
+    setUnsavedTabs((prev) => {
+      const next = new Set(prev);
+      if (hasHistory) {
+        next.add(tabId);
+      } else {
+        next.delete(tabId);
+      }
+      return next;
+    });
   };
 
   // Load tabs from Cookies on mount
@@ -46,6 +61,7 @@ export default function Home() {
               tabId={t.id}
               tabTitle={t.title}
               onSettingsChange={(s) => handleSettingsChange(t.id, s)}
+              onHistoryChange={(h) => handleHistoryChange(t.id, h)}
             />
           ),
         }));
@@ -72,6 +88,7 @@ export default function Home() {
             tabId={defaultId}
             tabTitle="Layout Generator"
             onSettingsChange={(s) => handleSettingsChange(defaultId, s)}
+            onHistoryChange={(h) => handleHistoryChange(defaultId, h)}
           />
         ),
         canClose: false,
@@ -105,6 +122,7 @@ export default function Home() {
           tabId={newId}
           tabTitle={newTitle}
           onSettingsChange={(s) => handleSettingsChange(newId, s)}
+          onHistoryChange={(h) => handleHistoryChange(newId, h)}
         />
       ),
       canClose: true,
@@ -113,9 +131,33 @@ export default function Home() {
     setActiveTabId(newId);
   };
 
-  const handleTabClose = (id: string) => {
+  const handleTabClose = async (id: string) => {
+    if (unsavedTabs.has(id)) {
+      const Swal = (await import("sweetalert2")).default;
+      const result = await Swal.fire({
+        title: "Tutup tab?",
+        text: "Tab ini memiliki riwayat aksi yang akan hilang jika ditutup.",
+        icon: "warning",
+        showCancelButton: true,
+        confirmButtonColor: "#f97316",
+        cancelButtonColor: "#9ca3af",
+        confirmButtonText: "Ya, Tutup",
+        cancelButtonText: "Batal",
+      });
+
+      if (!result.isConfirmed) return;
+    }
+
     const newTabs = tabs.filter((t) => t.id !== id);
     setTabs(newTabs);
+
+    // Cleanup unsaved state
+    setUnsavedTabs((prev) => {
+      const next = new Set(prev);
+      next.delete(id);
+      return next;
+    });
+
     if (activeTabId === id && newTabs.length > 0) {
       setActiveTabId(newTabs[newTabs.length - 1].id);
     }
@@ -127,6 +169,7 @@ export default function Home() {
         tabId={id}
         tabTitle={title}
         onSettingsChange={(s) => handleSettingsChange(id, s)}
+        onHistoryChange={(h) => handleHistoryChange(id, h)}
       />
     );
   };
@@ -153,11 +196,11 @@ export default function Home() {
 
   return (
     <div className="flex flex-col h-screen w-full">
-      <WelcomeModal 
+      <WelcomeModal
         isOpen={showWelcomeModal}
         onClose={() => setShowWelcomeModal(false)}
         onNewProject={() => {
-          initializeDefaultTab();
+          handleNewTab("layout", "Layout Generator");
           setShowWelcomeModal(false);
         }}
       />
