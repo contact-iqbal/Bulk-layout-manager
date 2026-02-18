@@ -16,7 +16,6 @@ import {
 } from "@/app/lib/db";
 
 import useHistory from "@/hooks/useHistory";
-import html2PDF from "jspdf-html2canvas-pro";
 
 interface Settings {
   addr1: string;
@@ -133,28 +132,39 @@ export default function LayoutGenerator({
   const handleDownloadPDF = async (pageRange?: string) => {
     if (!contentRef.current) return;
     setIsExporting(true);
-    
+
     // Dispatch custom event for loading indicator
-    window.dispatchEvent(new CustomEvent("export-start", { 
-      detail: { fileName: `${tabTitle.replace(/[^a-z0-9\s-_]/gi, "").trim() || "Layout"}.pdf` } 
+    window.dispatchEvent(new CustomEvent("export-start", {
+      detail: { fileName: `${tabTitle.replace(/[^a-z0-9\s-_]/gi, "").trim() || "Layout"}.pdf` }
     }));
 
     const element = contentRef.current.querySelector(
-      "#cards-container",
+      "#export-root",
     ) as HTMLElement;
-    
+
     if (!element) {
       setIsExporting(false);
       return;
     }
 
+    // 1️⃣ Temporarily remove scale from LIVE element
+    const originalTransform = element.style.transform;
+    element.style.transform = "scale(1)";
+
+    // 2️⃣ Force reflow (important)
+    void element.offsetHeight;
+
+    // 3️⃣ Clone AFTER reflow
     const cloned = element.cloneNode(true) as HTMLElement;
-    
+
+    // 4️⃣ Restore zoom in UI
+    element.style.transform = originalTransform;
+
     // Filter pages based on pageRange if provided
     if (pageRange) {
       const cardWrappers = cloned.querySelectorAll(".layout-card-wrapper");
       const pagesToKeep = new Set<number>();
-      
+
       // Parse page range "1,3,5-7"
       const parts = pageRange.split(",");
       parts.forEach(part => {
@@ -197,6 +207,7 @@ export default function LayoutGenerator({
         logging: true,
         ignoreElements: (el: Element) => el.tagName === "IFRAME",
         foreignObjectRendering: true,
+        windowWidth: 1123,
       },
       jsPDF: {
         unit: "mm",
@@ -320,10 +331,10 @@ export default function LayoutGenerator({
         (localStorage.getItem("settings_paperSize") as any) ||
         settings.paperSize,
     };
-    
+
     // If initialData is provided, use it to override settings
     if (initialData && initialData.settings) {
-       Object.assign(savedSettings, initialData.settings);
+      Object.assign(savedSettings, initialData.settings);
     }
 
     setSettings(savedSettings);
@@ -334,25 +345,25 @@ export default function LayoutGenerator({
         if (initialData && initialData.cards) {
           // Initialize from initialData (Imported JSON)
           const newCards = initialData.cards.map((c: CardData) => ({
-             ...c,
-             tabId: tabId // Remap to current tabId
+            ...c,
+            tabId: tabId // Remap to current tabId
           }));
 
           // Save to DB immediately to persist this new tab's data
           // Clear any existing data for this tabId just in case (though likely empty)
           const existing = await getAllCards(tabId);
           for (const c of existing) await deleteCardFromDB(c.id);
-          
+
           for (const c of newCards) {
-             await saveCardToDB(c);
+            await saveCardToDB(c);
           }
 
           // Handle History
           if (initialData.history) {
-             reset(initialData.history.past, newCards, initialData.history.future);
-             await saveHistoryToDB(tabId, initialData.history.past, initialData.history.future);
+            reset(initialData.history.past, newCards, initialData.history.future);
+            await saveHistoryToDB(tabId, initialData.history.past, initialData.history.future);
           } else {
-             reset([], newCards, []);
+            reset([], newCards, []);
           }
 
           setHasLoaded(true);
@@ -415,27 +426,27 @@ export default function LayoutGenerator({
     // Zoom shortcuts - handled by event listener above, but need actual implementation here or parent.
     // Since props are read-only, we emit event.
     // The implementation inside useEffect is correct for dispatching.
-    
+
     // We need to listen to the custom event in the parent (page.tsx) or here if we had local state.
     // Since zoom is controlled by parent, we just dispatch the request.
-    
+
     // However, to make it work seamlessly, we need to add the listener for the custom event we just dispatched?
     // No, the parent should listen to it.
-    
+
     const handleWheel = (e: WheelEvent) => {
-        if (e.ctrlKey) {
-            e.preventDefault();
-            // Calculate new zoom based on direction
-            const delta = e.deltaY > 0 ? -5 : 5;
-            // We need to use the current zoom prop
-            const currentZoom = zoom;
-            const newZoom = Math.max(25, Math.min(200, currentZoom + delta));
-            
-            // Dispatch event for parent to update state
-            window.dispatchEvent(new CustomEvent("zoom-update", { 
-                detail: { tabId, zoom: newZoom } 
-            }));
-        }
+      if (e.ctrlKey) {
+        e.preventDefault();
+        // Calculate new zoom based on direction
+        const delta = e.deltaY > 0 ? -5 : 5;
+        // We need to use the current zoom prop
+        const currentZoom = zoom;
+        const newZoom = Math.max(25, Math.min(200, currentZoom + delta));
+
+        // Dispatch event for parent to update state
+        window.dispatchEvent(new CustomEvent("zoom-update", {
+          detail: { tabId, zoom: newZoom }
+        }));
+      }
     };
 
     const handleUploadEvent = (e: CustomEvent) => {
@@ -451,7 +462,7 @@ export default function LayoutGenerator({
 
       const dbCards = await getAllCards(tabId);
       const dbHistory = await getHistoryFromDB(tabId);
-      
+
       const exportData = {
         version: "1.0",
         tabTitle,
@@ -471,8 +482,8 @@ export default function LayoutGenerator({
     };
 
     const handleToggleGrid = (e: Event) => {
-        const customEvent = e as CustomEvent;
-        setShowGrid(customEvent.detail?.show);
+      const customEvent = e as CustomEvent;
+      setShowGrid(customEvent.detail?.show);
     };
 
     window.addEventListener("undo-action", handleUndo);
@@ -481,11 +492,11 @@ export default function LayoutGenerator({
     window.addEventListener("upload-files", handleUploadEvent as EventListener);
     window.addEventListener("export-json-action", handleExportJSON as unknown as EventListener);
     window.addEventListener("toggle-grid", handleToggleGrid as EventListener);
-    
+
     // Use a more specific target if possible, or window with filter
     const container = document.getElementById(`layout-generator-${tabId}`);
     if (container) {
-        container.addEventListener("wheel", handleWheel as EventListener, { passive: false });
+      container.addEventListener("wheel", handleWheel as EventListener, { passive: false });
     }
 
     return () => {
@@ -496,7 +507,7 @@ export default function LayoutGenerator({
       window.removeEventListener("export-json-action", handleExportJSON as unknown as EventListener);
       window.removeEventListener("toggle-grid", handleToggleGrid as EventListener);
       if (container) {
-          container.removeEventListener("wheel", handleWheel as EventListener);
+        container.removeEventListener("wheel", handleWheel as EventListener);
       }
     };
   }, [undo, redo, tabId, handleDownloadPDF, zoom]);
@@ -544,11 +555,11 @@ export default function LayoutGenerator({
       <div
         id="main-content"
         ref={contentRef}
-        className="flex-1 overflow-y-auto px-20 py-10 flex flex-col items-center bg-gray-100 h-full relative"
+        className="flex-1 overflow-y-auto flex flex-col items-center bg-gray-100 h-full relative"
       >
         {showGrid && (
-          <div 
-            className="absolute inset-0 pointer-events-none z-0" 
+          <div
+            className="absolute inset-0 pointer-events-none z-0"
             style={{
               backgroundImage: `linear-gradient(#e5e7eb 1px, transparent 1px), linear-gradient(90deg, #e5e7eb 1px, transparent 1px)`,
               backgroundSize: `${40 * (zoom / 100)}px ${40 * (zoom / 100)}px`,
@@ -556,7 +567,7 @@ export default function LayoutGenerator({
             }}
           />
         )}
-        
+
         {cards.length === 0 ? (
           <div className="text-center text-gray-400 mt-20">
             <svg
@@ -576,28 +587,37 @@ export default function LayoutGenerator({
           </div>
         ) : (
           <div
-            id="cards-container"
-            className="grid gap-8 w-fit origin-top transition-transform duration-200"
-            style={{ transform: `scale(${zoom / 100})` }}
+            id="export-root"
+            className="bg-white"
+            style={{
+              width: "1123px",
+              margin: "0 auto"
+            }}
           >
-            {cards.map((card, index) => (
-              <div 
-                key={card.id} 
-                className="layout-card-wrapper" 
-                data-index={index}
-              >
-                <LayoutCard
-                  data={card}
-                settings={settings}
-                onUpdate={updateCard}
-                onDelete={deleteCard}
-                onCopy={copyCard}
-                onMoveDown={moveDownCard}
-                isLast={index === cards.length - 1}
-                paperSize={settings.paperSize}
-              />
-              </div>
-            ))}
+            <div
+              id="cards-container"
+              className="grid gap-8 mx-auto origin-top transition-transform duration-200"
+              style={{ transform: `scale(${zoom / 100})` , width: '279mm'}}
+            >
+              {cards.map((card, index) => (
+                <div
+                  key={card.id}
+                  className="layout-card-wrapper"
+                  data-index={index}
+                >
+                  <LayoutCard
+                    data={card}
+                    settings={settings}
+                    onUpdate={updateCard}
+                    onDelete={deleteCard}
+                    onCopy={copyCard}
+                    onMoveDown={moveDownCard}
+                    isLast={index === cards.length - 1}
+                    paperSize={settings.paperSize}
+                  />
+                </div>
+              ))}
+            </div>
           </div>
         )}
       </div>

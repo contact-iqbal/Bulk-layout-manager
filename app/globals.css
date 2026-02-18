@@ -1,9 +1,8 @@
 @import "tailwindcss";
-
 @plugin "tailwindcss-animate";
-
 @custom-variant dark (&:where(.dark, .dark *));
 
+/* -------------------- Root Variables -------------------- */
 :root {
   --background: 0 0% 100%;
   --foreground: 240 10% 3.9%;
@@ -59,33 +58,26 @@
   --chart-5: 340 75% 55%;
 }
 
+/* -------------------- Theme -------------------- */
 @theme {
   --font-sans: var(--font-inter);
 
   --color-background: hsl(var(--background));
   --color-foreground: hsl(var(--foreground));
-
   --color-card: hsl(var(--card));
   --color-card-foreground: hsl(var(--card-foreground));
-
   --color-popover: hsl(var(--popover));
   --color-popover-foreground: hsl(var(--popover-foreground));
-
   --color-primary: hsl(var(--primary));
   --color-primary-foreground: hsl(var(--primary-foreground));
-
   --color-secondary: hsl(var(--secondary));
   --color-secondary-foreground: hsl(var(--secondary-foreground));
-
   --color-muted: hsl(var(--muted));
   --color-muted-foreground: hsl(var(--muted-foreground));
-
   --color-accent: hsl(var(--accent));
   --color-accent-foreground: hsl(var(--accent-foreground));
-
   --color-destructive: hsl(var(--destructive));
   --color-destructive-foreground: hsl(var(--destructive-foreground));
-
   --color-border: hsl(var(--border));
   --color-input: hsl(var(--input));
   --color-ring: hsl(var(--ring));
@@ -98,243 +90,69 @@
   --animate-accordion-up: accordion-up 0.2s ease-out;
 
   @keyframes accordion-down {
-    from {
-      height: 0;
-    }
-
-    to {
-      height: var(--radix-accordion-content-height);
-    }
+    from { height: 0; }
+    to { height: var(--radix-accordion-content-height); }
   }
-
   @keyframes accordion-up {
-    from {
-      height: var(--radix-accordion-content-height);
-    }
-
-    to {
-      height: 0;
-    }
-  }
-
-  /* 
-    COMPATIBILITY FIX: Override Tailwind v4 oklch colors with HSL 
-    for html2pdf.js (html2canvas) compatibility.
-  */
-  --color-gray-50: hsl(0, 0%, 98%);
-  --color-gray-100: hsl(0, 0%, 96.1%);
-  --color-gray-200: hsl(0, 0%, 89.8%);
-  --color-gray-300: hsl(0, 0%, 82.7%);
-  --color-gray-400: hsl(0, 0%, 63.9%);
-  --color-gray-500: hsl(0, 0%, 45.1%);
-  --color-gray-600: hsl(0, 0%, 32.2%);
-  --color-gray-700: hsl(0, 0%, 25.1%);
-  --color-gray-800: hsl(0, 0%, 14.9%);
-  --color-gray-900: hsl(0, 0%, 9%);
-  --color-gray-950: hsl(0, 0%, 3.9%);
-
-  --color-neutral-50: hsl(0, 0%, 98%);
-  --color-neutral-100: hsl(0, 0%, 96.1%);
-  --color-neutral-200: hsl(0, 0%, 89.8%);
-  --color-neutral-300: hsl(0, 0%, 82.7%);
-  --color-neutral-400: hsl(0, 0%, 63.9%);
-  --color-neutral-500: hsl(0, 0%, 45.1%);
-  --color-neutral-600: hsl(0, 0%, 32.2%);
-  --color-neutral-700: hsl(0, 0%, 25.1%);
-  --color-neutral-800: hsl(0, 0%, 14.9%);
-  --color-neutral-900: hsl(0, 0%, 9%);
-  --color-neutral-950: hsl(0, 0%, 3.9%);
-
-  --color-orange-50: hsl(33, 100%, 96.5%);
-  --color-orange-100: hsl(34, 100%, 91.8%);
-  --color-orange-200: hsl(31, 100%, 81%);
-  --color-orange-300: hsl(28, 100%, 66.1%);
-  --color-orange-400: hsl(24, 100%, 53.7%);
-  --color-orange-500: hsl(20, 100%, 50%);
-  --color-orange-600: hsl(15, 100%, 45%);
-  --color-orange-700: hsl(12, 100%, 35%);
-  --color-orange-800: hsl(13, 93%, 28%);
-  --color-orange-900: hsl(13, 85%, 23%);
-  --color-orange-950: hsl(11, 88%, 12%);
-
-  --color-red-500: hsl(0, 84%, 60%);
-  --color-blue-500: hsl(217, 91%, 60%);
-  --color-black: hsl(0, 0%, 0%);
-  --color-white: hsl(0, 0%, 100%);
-}
-
-/*
-  The default border color has changed to `currentColor` in Tailwind CSS v4,
-  so we've added these compatibility styles to make sure everything still
-  looks the same as it did with Tailwind CSS v3.
-
-  If we ever want to remove these styles, we need to add an explicit border
-  color utility to any element that depends on these defaults.
-*/
-@layer base {
-
-  *,
-  ::after,
-  ::before,
-  ::backdrop,
-  ::file-selector-button {
-    border-color: var(--color-gray-200, currentColor);
+    from { height: var(--radix-accordion-content-height); }
+    to { height: 0; }
   }
 }
 
-/* Print Styles */
-@media print {
-  @page {
-    margin: 1cm;
-    size: A4 portrait;
-  }
+/* -------------------- Scrollbar -------------------- */
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: rgba(0,0,0,0.1); border-radius: 10px; transition: background 0.3s; }
+::-webkit-scrollbar-thumb:hover { background: rgba(0,0,0,0.25); }
+.thin-scrollbar::-webkit-scrollbar { width: 4px; }
+.thin-scrollbar::-webkit-scrollbar-thumb { background: #e2e8f0; }
+.thin-scrollbar::-webkit-scrollbar-thumb:hover { background: #cbd5e1; }
 
-  /* CRITICAL: Reset ALL layout containers that might block page breaks */
-  html,
-  body,
-  #__next,
-  main,
-  [class*="Home"],
-  [class*="TabSystem"],
-  [class*="LayoutGenerator"],
-  #main-content,
-  #cards-container {
-    height: auto !important;
-    min-height: initial !important;
-    max-height: initial !important;
-    overflow: visible !important;
-    position: static !important;
-    display: block !important;
-    margin: 0 !important;
-    padding: 0 !important;
-  }
-
-  body {
-    background: white !important;
-    -webkit-print-color-adjust: exact !important;
-    print-color-adjust: exact !important;
-  }
-
-  /* Hide UI elements explicitly */
-  .no-print,
-  .Navbar,
-  .Sidebar_mini,
-  .Sidebar_main,
-  [class*="TabSystem_tab_bar"],
-  button,
-  nav,
-  header,
-  aside {
-    display: none !important;
-  }
-
-  /* Force cards to separate onto new pages */
-  .print-page {
-    display: flex !important;
-    flex-direction: column !important;
-    width: var(--print-width, 297mm) !important;
-    height: var(--print-height, 210mm) !important;
-    max-width: none !important;
-    max-height: none !important;
-    page-break-after: always !important;
-    break-after: page !important;
-    page-break-inside: avoid !important;
-    break-inside: avoid !important;
-    margin: 0 !important;
-    padding: 1.5cm !important;
-    position: relative !important;
-    box-sizing: border-box !important;
-  }
-
-  /* Ensure background colors and images are printed */
-  * {
-    -webkit-print-color-adjust: exact !important;
-    print-color-adjust: exact !important;
-    color-adjust: exact !important;
-  }
-
-  /* Fix for card internal layout if it uses flex */
-  .print-page .flex {
-    display: flex !important;
-  }
-
-  /* Hide specific elements during export */
-  .no-print {
-    display: none !important;
-  }
-}
-
-/* Screen Preview Styling */
-/* .print-page {
-  transition: all 0.3s ease;
-  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.05);
-  border-radius: 4px;
-  width: var(--print-width, 297mm);
-  min-height: var(--print-height, 210mm);
-  box-sizing: border-box;
-  overflow: hidden;
-} */
-
-/* 1. Mengatur ukuran scrollbar (lebar untuk vertikal, tinggi untuk horizontal) */
-::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
-}
-
-/* 2. Track (Latar belakang scrollbar) */
-::-webkit-scrollbar-track {
-  background: transparent;
-}
-
-/* 3. Thumb (Bagian yang digeser) */
-::-webkit-scrollbar-thumb {
-  background: rgba(0, 0, 0, 0.1);
-  /* Warna abu-abu transparan */
-  border-radius: 10px;
-  transition: background 0.3s ease;
-}
-
-/* 4. Efek Hover (Warna menjadi sedikit lebih gelap saat disentuh, persis Canva) */
-::-webkit-scrollbar-thumb:hover {
-  background: rgba(0, 0, 0, 0.25);
-}
-
-/* Opsional: Jika Anda ingin scrollbar hanya muncul di dalam elemen tertentu yang memiliki class .thin-scrollbar */
-.thin-scrollbar::-webkit-scrollbar {
-  width: 4px;
-}
-
-.print-page {
-  width: 1123px;        /* A4 landscape width */
-  height: 794px;        /* A4 landscape height */
-  box-sizing: border-box;
-  overflow: hidden;
-
-  box-shadow: none;     /* remove shadow */
-  border-radius: 0;     /* remove radius */
-}
-
-
-.thin-scrollbar::-webkit-scrollbar {
-  width: 4px;
-}
-
-.thin-scrollbar::-webkit-scrollbar-track {
-  background: transparent;
-}
-
-.thin-scrollbar::-webkit-scrollbar-thumb {
-  background: #e2e8f0;
-  border-radius: 10px;
-}
-
-.thin-scrollbar::-webkit-scrollbar-thumb:hover {
-  background: #cbd5e1;
-}
-
+/* -------------------- Fonts -------------------- */
 .genos {
   font-family: "Genos", sans-serif;
   font-optical-sizing: auto;
   font-weight: 600;
   font-style: italic;
+}
+
+/* -------------------- Layout Card -------------------- */
+.layout-card-wrapper,
+.print-page {
+  width: 100%;
+  max-width: 297mm;     /* A4 width */
+  min-height: 210mm;    /* A4 height */
+  overflow: visible;
+  box-sizing: border-box;
+  break-inside: avoid;
+  page-break-inside: avoid;
+  page-break-after: always;
+  break-after: page;
+  box-shadow: none;
+  border-radius: 0;
+}
+
+/* -------------------- Print Media -------------------- */
+@media print {
+  @page { margin: 1cm; size: A4 portrait; }
+  html, body, #__next, main, #main-content, #cards-container {
+    width: 100% !important;
+    height: auto !important;
+    min-height: initial !important;
+    max-height: initial !important;
+    overflow: visible !important;
+    display: block !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    position: static !important;
+  }
+
+  body { background: white !important; -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
+
+  .no-print, .Navbar, .Sidebar_mini, .Sidebar_main, button, nav, header, aside {
+    display: none !important;
+  }
+
+  .print-page > * { display: block !important; }
+  * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; color-adjust: exact !important; }
 }

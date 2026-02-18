@@ -67,7 +67,7 @@ export default function LayoutCard({
         </button>
 
         {isMenuOpen && (
-          <div className="absolute top-10 right-0 bg-white border border-gray-200 shadow-xl rounded-lg py-1.5 w-48 animate-in fade-in slide-in-from-top-2 duration-200 z-[60]">
+          <div className="no-print absolute top-10 right-0 bg-white border border-gray-200 shadow-xl rounded-lg py-1.5 w-48 animate-in fade-in slide-in-from-top-2 duration-200 z-[60]">
             <button
               onClick={(e) => {
                 e.stopPropagation();
@@ -130,13 +130,13 @@ export default function LayoutCard({
 
       <div className="flex justify-between items-start mb-8">
         <img
-          src="/assets/logo.png"
+          src="https://files.catbox.moe/dienws.png"
           className="w-40 h-24 object-cover rounded"
           alt="Logo"
         />
         <div className="text-right genos uppercase text-3xl leading-none">
-          <span className="text-[#F36F21] genos">Klik, Bayar, </span>
-          <span className="text-[#002D3E] genos">Tayang</span>
+          <span className="text-[#F36F21] genos">Klik, Bayar, <span className="text-[#002D3E] genos">Tayang</span></span>
+          
         </div>
       </div>
 
