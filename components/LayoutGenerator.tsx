@@ -962,8 +962,16 @@ export default function LayoutGenerator({
 
           // Handle History
           if (initialData.history) {
-            reset(initialData.history.past, newCards, initialData.history.future);
-            await saveHistoryToDB(tabId, initialData.history.past, initialData.history.future);
+            reset(
+              initialData.history.past || [],
+              newCards,
+              initialData.history.future || []
+            );
+            await saveHistoryToDB(
+              tabId,
+              initialData.history.past || [],
+              initialData.history.future || []
+            );
           } else {
             reset([], newCards, []);
           }

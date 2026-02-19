@@ -90,32 +90,7 @@ export default function Navbar({
 
   const handleJSONChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files.length > 0) {
-      const file = e.target.files[0];
-      const reader = new FileReader();
-      reader.onload = (event) => {
-        try {
-          const json = JSON.parse(event.target?.result as string);
-          if (json.version && json.cards) {
-            onNewTab?.("layout", json.tabTitle || "Imported Layout", json);
-          } else {
-            Swal.fire({
-              icon: "error",
-              title: "Error",
-              text: "File JSON tidak valid atau rusak!",
-              confirmButtonColor: "#dc2626",
-            });
-          }
-        } catch (error) {
-          console.error("Invalid JSON file", error);
-          Swal.fire({
-            icon: "error",
-            title: "Error",
-            text: "File JSON tidak valid!",
-            confirmButtonColor: "#dc2626",
-          });
-        }
-      };
-      reader.readAsText(file);
+      onUpload(e.target.files);
       e.target.value = ""; // Reset
     }
   };

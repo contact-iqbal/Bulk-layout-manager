@@ -19,6 +19,50 @@ export default function StoragePanel({ cards, onExportJSON }: StoragePanelProps)
   const [isLoading, setIsLoading] = useState(false);
   const [backupSize, setBackupSize] = useState<string | null>(null);
 
+  const handleImportClick = () => {
+    const input = document.createElement("input");
+    input.type = "file";
+    input.accept = ".json";
+    input.onchange = async (e: Event) => {
+      const target = e.target as HTMLInputElement;
+      if (target.files && target.files.length > 0) {
+        const file = target.files[0];
+        try {
+          const text = await file.text();
+          const json = JSON.parse(text);
+          if (json.cards || json.history) {
+             // Dispatch event to parent to handle import
+             const event = new CustomEvent("import-backup", { detail: json });
+             window.dispatchEvent(event);
+             
+             Swal.fire({
+                title: "Berhasil!",
+                text: "Backup berhasil diimpor ke tab baru.",
+                icon: "success",
+                confirmButtonColor: "#f97316",
+             });
+          } else {
+             Swal.fire({
+                title: "Gagal!",
+                text: "Format file backup tidak valid.",
+                icon: "error",
+                confirmButtonColor: "#dc2626",
+             });
+          }
+        } catch (error) {
+           console.error("Import error:", error);
+           Swal.fire({
+              title: "Error!",
+              text: "Gagal membaca file backup.",
+              icon: "error",
+              confirmButtonColor: "#dc2626",
+           });
+        }
+      }
+    };
+    input.click();
+  };
+
   const formatBytes = (bytes: number, decimals = 2) => {
     if (bytes === 0) return "0 Bytes";
     const k = 1024;
@@ -233,32 +277,53 @@ export default function StoragePanel({ cards, onExportJSON }: StoragePanelProps)
 
       <div className="bg-white rounded-lg shadow p-4">
         <h3 className="text-sm font-semibold text-gray-600 mb-3">
-          Ekspor Data
+          Ekspor & Impor Data
         </h3>
         <p className="text-xs text-gray-500 mb-4">
-          Unduh seluruh data layout (kartu, pengaturan, history) dalam format
-          JSON untuk cadangan atau dipindahkan ke browser lain.
+          Unduh seluruh data layout sebagai backup JSON atau pulihkan data dari file backup.
         </p>
 
-        <button
-          onClick={onExportJSON}
-          className="w-full cursor-pointer bg-green-600 hover:bg-green-700 text-white text-sm font-medium py-2 px-4 rounded-lg flex items-center justify-center gap-2 transition-colors"
-        >
-          <svg
-            className="w-4 h-4"
-            fill="none"
-            stroke="currentColor"
-            viewBox="0 0 24 24"
+        <div className="space-y-3">
+          <button
+            onClick={onExportJSON}
+            className="w-full cursor-pointer bg-green-600 hover:bg-green-700 text-white text-sm font-medium py-2 px-4 rounded-lg flex items-center justify-center gap-2 transition-colors"
           >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth="2"
-              d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"
-            />
-          </svg>
-          Download Backup {backupSize && `(${backupSize})`}
-        </button>
+            <svg
+              className="w-4 h-4"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth="2"
+                d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"
+              />
+            </svg>
+            Download Backup {backupSize && `(${backupSize})`}
+          </button>
+
+          <button
+            onClick={handleImportClick}
+            className="w-full cursor-pointer bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium py-2 px-4 rounded-lg flex items-center justify-center gap-2 transition-colors"
+          >
+            <svg
+              className="w-4 h-4"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth="2"
+                d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"
+              />
+            </svg>
+            Import Backup (JSON)
+          </button>
+        </div>
       </div>
 
       <div className="bg-red-50 border border-red-200 rounded-lg shadow p-4 mt-6">

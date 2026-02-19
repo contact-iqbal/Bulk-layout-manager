@@ -22,9 +22,28 @@ export default function UploadPanel({
   cardCount,
   history,
 }: UploadPanelProps) {
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files.length > 0) {
-      onUpload(e.target.files);
+      const files = e.target.files;
+      
+      // Check if the first file is a JSON backup file
+      if (files.length === 1 && files[0].type === "application/json") {
+         const file = files[0];
+         try {
+           const text = await file.text();
+           const json = JSON.parse(text);
+           if (json.cards || json.history) {
+              // Dispatch event to parent to handle import
+              const event = new CustomEvent("import-backup", { detail: json });
+              window.dispatchEvent(event);
+           }
+         } catch (error) {
+            console.error("Import error:", error);
+         }
+      } else {
+        // Normal image upload
+        onUpload(files);
+      }
       e.target.value = ""; // Reset
     }
   };
@@ -46,12 +65,12 @@ export default function UploadPanel({
         <input
           type="file"
           multiple
-          accept="image/*"
+          accept="image/*, application/json"
           onChange={handleFileChange}
           className="absolute inset-0 opacity-0 cursor-pointer w-full h-full"
         />
         <p className="text-[11px] font-bold text-gray-400 uppercase">
-          Drop Images Here
+          Drop Images or Backup JSON Here
         </p>
       </div>
       {onPrint && (

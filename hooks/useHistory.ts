@@ -29,7 +29,7 @@ export default function useHistory<T>(initialState: T): useHistoryResult<T> {
   const canRedo = future.length > 0;
 
   const undo = useCallback(() => {
-    if (!canUndo) return;
+    if (!past || past.length === 0) return;
 
     const previous = past[past.length - 1];
     const newPast = past.slice(0, past.length - 1);
@@ -37,10 +37,10 @@ export default function useHistory<T>(initialState: T): useHistoryResult<T> {
     setPast(newPast);
     setFuture([{ state: present, action: previous.action }, ...future]);
     setPresent(previous.state);
-  }, [past, present, future, canUndo]);
+  }, [past, present, future]);
 
   const redo = useCallback(() => {
-    if (!canRedo) return;
+    if (!future || future.length === 0) return;
 
     const next = future[0];
     const newFuture = future.slice(1);
@@ -48,7 +48,7 @@ export default function useHistory<T>(initialState: T): useHistoryResult<T> {
     setPast([...past, { state: present, action: next.action }]);
     setPresent(next.state);
     setFuture(newFuture);
-  }, [past, present, future, canRedo]);
+  }, [past, present, future]);
 
   const set = useCallback(
     (newPresent: T, action: string = "Action") => {
@@ -61,9 +61,9 @@ export default function useHistory<T>(initialState: T): useHistoryResult<T> {
 
   const reset = useCallback(
     (newPast: HistoryItem<T>[], newPresent: T, newFuture: HistoryItem<T>[]) => {
-      setPast(newPast);
+      setPast(newPast || []);
       setPresent(newPresent);
-      setFuture(newFuture);
+      setFuture(newFuture || []);
     },
     [],
   );

@@ -33,11 +33,19 @@ export default function Home() {
       handleZoomChange(tabId, zoom);
     };
 
+    const handleImportBackup = (e: CustomEvent) => {
+      const backupData = e.detail;
+      handleAddTab(backupData);
+    };
+
     window.addEventListener("zoom-update", handleZoomUpdate as EventListener);
+    window.addEventListener("import-backup", handleImportBackup as EventListener);
+    
     return () => {
       window.removeEventListener("zoom-update", handleZoomUpdate as EventListener);
+      window.removeEventListener("import-backup", handleImportBackup as EventListener);
     };
-  }, []);
+  }, [tabs]);
 
   const handleZoomChange = (tabId: string, zoom: number) => {
     setTabZoom((prev) => ({
@@ -129,6 +137,23 @@ export default function Home() {
     Cookies.set("dlayout_tabs", JSON.stringify(tabsToSave), { expires: 365 });
     Cookies.set("dlayout_active_tab", activeTabId, { expires: 365 });
   }, [tabs, activeTabId, isLoaded]);
+
+  const handleAddTab = (initialData?: any) => {
+    const newId = `tab-${Date.now()}`;
+    const newTitle = initialData?.tabTitle || `Layout Generator (${tabs.length + 1})`;
+    
+    setTabs((prev) => [
+      ...prev,
+      {
+        id: newId,
+        title: newTitle,
+        content: null,
+        canClose: true,
+        initialData: initialData,
+      },
+    ]);
+    setActiveTabId(newId);
+  };
 
   const handleNewTab = (type: string, title: string, initialData?: any) => {
     const newId = `tab-${Date.now()}`;
@@ -234,6 +259,30 @@ export default function Home() {
       />
       <Navbar
         onUpload={(files) => {
+           // Check if first file is JSON (backup)
+           if (files.length === 1 && files[0].type === "application/json") {
+              const file = files[0];
+              const reader = new FileReader();
+              reader.onload = (e) => {
+                 try {
+                    const json = JSON.parse(e.target?.result as string);
+                    if (json.cards || json.history) {
+                       handleAddTab(json);
+                       Swal.fire({
+                          title: "Berhasil!",
+                          text: "Backup berhasil diimpor ke tab baru.",
+                          icon: "success",
+                          confirmButtonColor: "#f97316",
+                       });
+                    }
+                 } catch (err) {
+                    console.error("Failed to parse backup", err);
+                 }
+              };
+              reader.readAsText(file);
+              return;
+           }
+
           // Dispatch custom event to target the active LayoutGenerator tab
           if (activeTabId) {
             window.dispatchEvent(
