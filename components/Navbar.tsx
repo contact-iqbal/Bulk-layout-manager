@@ -24,18 +24,36 @@ export default function Navbar({
   const [isExporting, setIsExporting] = useState(false);
   const [pageRange, setPageRange] = useState("");
   const [showGrid, setShowGrid] = useState(false);
+  const [showRulers, setShowRulers] = useState(false);
 
   const paperDimensions = activePaperSize === "a4" ? "210 x 297 mm" : "215 x 330 mm";
 
   useEffect(() => {
     const handleExportEnd = () => setIsExporting(false);
     window.dispatchEvent(new CustomEvent("toggle-grid", { detail: { show: showGrid } }));
+    window.dispatchEvent(new CustomEvent("toggle-rulers", { detail: { show: showRulers } }));
+    
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.ctrlKey && e.key === "r") {
+        e.preventDefault();
+        setShowRulers(prev => !prev);
+      }
+    };
+
     window.addEventListener("export-end", handleExportEnd);
-    return () => window.removeEventListener("export-end", handleExportEnd);
-  }, [showGrid]);
+    window.addEventListener("keydown", handleKeyDown);
+    return () => {
+      window.removeEventListener("export-end", handleExportEnd);
+      window.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [showGrid, showRulers]);
 
   const toggleGrid = () => {
     setShowGrid(prev => !prev);
+  };
+
+  const toggleRulers = () => {
+    setShowRulers(prev => !prev);
   };
 
   const handlePrint = () => {
@@ -173,9 +191,14 @@ export default function Navbar({
           action: () => onNewTab?.("layout", "Layout Generator"),
         },
         {
-          label: "Enable Grid",
+          label: showGrid ? "Disable Grid" : "Enable Grid",
           shortcut: "Ctrl+'",
           action: () => toggleGrid(),
+        },
+        {
+          label: showRulers ? "Disable Rulers" : "Enable Rulers",
+          shortcut: "Ctrl+R",
+          action: () => toggleRulers(),
         },
       ],
     },

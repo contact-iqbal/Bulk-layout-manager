@@ -17,6 +17,7 @@ import {
 } from "@/app/lib/db";
 
 import useHistory from "@/hooks/useHistory";
+import Ruler from "@/components/Ruler";
 import html2canvas from "html2canvas";
 import jsPDF from "jspdf";
 import JSZip from "jszip";
@@ -58,6 +59,9 @@ export default function LayoutGenerator({
   const [isExporting, setIsExporting] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
   const [showGrid, setShowGrid] = useState(false);
+  const [showRulers, setShowRulers] = useState(false);
+  const [scrollPos, setScrollPos] = useState({ x: 0, y: 0 });
+  const [originOffset, setOriginOffset] = useState({ x: 0, y: 0 });
 
   // Settings State
   const [settings, setSettings] = useState<Settings>({
@@ -1152,6 +1156,45 @@ export default function LayoutGenerator({
     };
   }, [undo, redo, tabId, handleDownloadPDF, zoom]);
 
+  useEffect(() => {
+    const handleToggleRulers = (e: Event) => {
+      const customEvent = e as CustomEvent;
+      setShowRulers(customEvent.detail?.show);
+    };
+    window.addEventListener("toggle-rulers", handleToggleRulers as EventListener);
+    return () => window.removeEventListener("toggle-rulers", handleToggleRulers as EventListener);
+  }, []);
+
+  useEffect(() => {
+    if (!showRulers) return;
+    
+    const updateOrigin = () => {
+      const mainContent = contentRef.current;
+      const cardsContainer = document.getElementById("cards-container");
+      
+      if (mainContent && cardsContainer) {
+        const mainRect = mainContent.getBoundingClientRect();
+        const cardsRect = cardsContainer.getBoundingClientRect();
+        
+        const x = (cardsRect.left - mainRect.left) + mainContent.scrollLeft;
+        const y = (cardsRect.top - mainRect.top) + mainContent.scrollTop;
+        
+        setOriginOffset({ x, y });
+      }
+    };
+
+    updateOrigin();
+    window.addEventListener("resize", updateOrigin);
+    return () => window.removeEventListener("resize", updateOrigin);
+  }, [showRulers, zoom, activeLeftPanel, cards.length]);
+
+  const handleScroll = (e: React.UIEvent<HTMLDivElement>) => {
+    setScrollPos({
+      x: e.currentTarget.scrollLeft,
+      y: e.currentTarget.scrollTop,
+    });
+  };
+
   return (
     <div
       id={`layout-generator-${tabId}`}
@@ -1198,29 +1241,55 @@ export default function LayoutGenerator({
         </MainSidebar>
       )}
 
-      <div
-        id="main-content"
-        ref={contentRef}
-        className="flex-1 overflow-y-auto flex flex-col items-center bg-gray-100 h-full relative"
-      >
-        {(!hasLoaded || isUploading) && (
+      <div className="flex-1 flex flex-col relative overflow-hidden h-full">
+        {showRulers && (
+          <div className="flex flex-row h-[20px] shrink-0 z-20 bg-gray-100 border-b border-gray-300">
+            <div className="w-[20px] shrink-0 bg-gray-200 border-r border-gray-300" />
+            <div className="flex-1 relative overflow-hidden">
+              <Ruler
+                orientation="horizontal"
+                scale={zoom / 100}
+                scrollPos={scrollPos.x}
+                originOffset={originOffset.x}
+              />
+            </div>
+          </div>
+        )}
+
+        <div className="flex-1 flex flex-row overflow-hidden relative h-full">
+          {showRulers && (
+            <div className="w-[20px] shrink-0 h-full z-20 bg-gray-100 border-r border-gray-300 relative overflow-hidden">
+              <Ruler
+                orientation="vertical"
+                scale={zoom / 100}
+                scrollPos={scrollPos.y}
+                originOffset={originOffset.y}
+              />
+            </div>
+          )}
+          <div
+            id="main-content"
+            ref={contentRef}
+            onScroll={handleScroll}
+            className="flex-1 overflow-y-auto flex flex-col items-center bg-gray-100 h-full relative"
+            style={
+              showGrid
+                ? {
+                    backgroundImage: `linear-gradient(#e5e7eb 1px, transparent 1px), linear-gradient(90deg, #e5e7eb 1px, transparent 1px)`,
+                    backgroundSize: `${40 * (zoom / 100)}px ${40 * (zoom / 100)}px`,
+                    backgroundPosition: "center top",
+                    backgroundAttachment: "fixed",
+                  }
+                : undefined
+            }
+          >
+            {(!hasLoaded || isUploading) && (
           <div className="absolute inset-0 z-50 flex flex-col items-center justify-center bg-white/80 backdrop-blur-sm">
             <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-neutral-500 mb-4"></div>
             <p className="text-gray-600 font-medium">
               {isUploading ? "Memproses gambar..." : "Memuat layout..."}
             </p>
           </div>
-        )}
-
-        {showGrid && (
-          <div
-            className="absolute inset-0 pointer-events-none z-0"
-            style={{
-              backgroundImage: `linear-gradient(#e5e7eb 1px, transparent 1px), linear-gradient(90deg, #e5e7eb 1px, transparent 1px)`,
-              backgroundSize: `${40 * (zoom / 100)}px ${40 * (zoom / 100)}px`,
-              backgroundPosition: "center top",
-            }}
-          />
         )}
 
         {cards.length === 0 ? (
@@ -1274,6 +1343,8 @@ export default function LayoutGenerator({
             </div>
           </div>
         )}
+      </div>
+        </div>
       </div>
 
       {isMapsOpen && (
