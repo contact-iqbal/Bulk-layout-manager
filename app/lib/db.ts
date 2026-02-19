@@ -3,6 +3,7 @@ export interface CardData {
   tabId?: string; // Optional for backward compatibility, but should be used
   name?: string; // Custom name for the card
   imgSrc: string;
+  customLogo?: string; // Specific logo for this card
   coords: string;
   jenis: string;
   ukuran: string;

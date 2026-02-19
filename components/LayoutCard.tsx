@@ -3,6 +3,7 @@
 import { CardData } from "@/app/lib/db";
 import Swal from "sweetalert2";
 import { useState, useRef, useEffect } from "react";
+import LogoCropperModal from "./LogoCropperModal";
 
 interface Settings {
   addr1: string;
@@ -20,6 +21,7 @@ interface LayoutCardProps {
   onMoveDown: (id: string) => void;
   isLast: boolean;
   paperSize?: "a4" | "f4";
+  customLogo?: string | null;
 }
 
 interface BufferedInputProps extends Omit<
@@ -119,9 +121,33 @@ export default function LayoutCard({
   onMoveDown,
   isLast,
   paperSize,
+  customLogo,
 }: LayoutCardProps) {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const [isCropperOpen, setIsCropperOpen] = useState(false);
+  const [pendingLogo, setPendingLogo] = useState<string | null>(null);
   const menuRef = useRef<HTMLDivElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const handleLogoFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onload = (ev) => {
+        setPendingLogo(ev.target?.result as string);
+        setIsCropperOpen(true);
+      };
+      reader.readAsDataURL(file);
+    }
+    // Reset input
+    e.target.value = "";
+  };
+
+  const handleLogoSave = (croppedLogo: string) => {
+    onUpdate(data.id, "customLogo", croppedLogo);
+    setIsCropperOpen(false);
+    setPendingLogo(null);
+  };
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -217,11 +243,39 @@ export default function LayoutCard({
       </div>
 
       <div className="flex justify-between items-start mb-8">
-        <img
-          src="https://files.catbox.moe/dienws.png"
-          className="w-40 h-24 object-cover rounded"
-          alt="Logo"
-        />
+        <div className="relative group/logo">
+          <img
+            src={data.customLogo || customLogo || "https://files.catbox.moe/dienws.png"}
+            className="w-40 h-24 object-contain rounded transition-all group-hover/logo:brightness-90"
+            alt="Logo"
+          />
+          <div 
+             className="no-print absolute inset-0 flex items-center justify-center opacity-0 group-hover/logo:opacity-100 transition-opacity bg-black/30 rounded cursor-pointer"
+             onClick={() => fileInputRef.current?.click()}
+             title="Ganti Logo Kartu Ini"
+          >
+             <i className="fa-solid fa-camera text-white text-2xl drop-shadow-lg"></i>
+          </div>
+          <input 
+             type="file" 
+             ref={fileInputRef}
+             onChange={handleLogoFileChange}
+             accept="image/*"
+             className="hidden" 
+          />
+          {data.customLogo && (
+             <button 
+               className="no-print absolute -top-2 -right-2 w-6 h-6 bg-red-500 hover:bg-red-600 text-white rounded-full flex items-center justify-center opacity-0 group-hover/logo:opacity-100 transition-opacity shadow-md z-10"
+               onClick={(e) => {
+                 e.stopPropagation();
+                 onUpdate(data.id, "customLogo", "");
+               }}
+               title="Hapus Logo Custom"
+             >
+               <i className="fa-solid fa-times text-xs"></i>
+             </button>
+          )}
+        </div>
         <div className="text-right genos uppercase text-3xl leading-none">
           <span className="text-[#F36F21] genos">
             Klik, Bayar, <span className="text-[#002D3E] genos">Tayang</span>
@@ -334,6 +388,17 @@ export default function LayoutCard({
           </div>
         </div>
       </div>
+      {isCropperOpen && (
+        <LogoCropperModal
+          isOpen={isCropperOpen}
+          onClose={() => {
+            setIsCropperOpen(false);
+            setPendingLogo(null);
+          }}
+          imageSrc={pendingLogo}
+          onSave={handleLogoSave}
+        />
+      )}
     </div>
   );
 }

@@ -13,7 +13,10 @@ interface UploadPanelProps {
     onUndo: () => void;
     onRedo: () => void;
   };
+  onLogoUpload?: (file: File | string) => void;
 }
+
+import LogoCropperModal from "./LogoCropperModal";
 
 export default function UploadPanel({
   onUpload,
@@ -21,7 +24,11 @@ export default function UploadPanel({
   isExporting,
   cardCount,
   history,
+  onLogoUpload,
 }: UploadPanelProps) {
+  const [isCropperOpen, setIsCropperOpen] = useState(false);
+  const [pendingLogo, setPendingLogo] = useState<string | null>(null);
+
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files.length > 0) {
       const files = e.target.files;
@@ -46,6 +53,29 @@ export default function UploadPanel({
       }
       e.target.value = ""; // Reset
     }
+  };
+
+  const handleLogoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files.length > 0 && onLogoUpload) {
+      const file = e.target.files[0];
+      if (file.type.startsWith("image/")) {
+        const reader = new FileReader();
+        reader.onload = (ev) => {
+          setPendingLogo(ev.target?.result as string);
+          setIsCropperOpen(true);
+        };
+        reader.readAsDataURL(file);
+      }
+      e.target.value = ""; // Reset
+    }
+  };
+
+  const handleLogoSave = (croppedLogo: string) => {
+    if (onLogoUpload) {
+      onLogoUpload(croppedLogo);
+    }
+    setIsCropperOpen(false);
+    setPendingLogo(null);
   };
 
   const [showAllHistory, setShowAllHistory] = useState(false);
@@ -73,6 +103,24 @@ export default function UploadPanel({
           Drop Images or Backup JSON Here
         </p>
       </div>
+      
+      {onLogoUpload && (
+        <div className="relative group border border-dashed border-gray-200 rounded-lg p-3 text-center hover:border-blue-500 transition cursor-pointer bg-gray-50">
+          <input
+            type="file"
+            accept="image/*"
+            onChange={handleLogoChange}
+            className="absolute inset-0 opacity-0 cursor-pointer w-full h-full"
+          />
+          <div className="flex items-center justify-center gap-2">
+             <i className="fa-regular fa-image text-gray-400 group-hover:text-blue-500"></i>
+             <p className="text-[10px] font-bold text-gray-400 uppercase group-hover:text-blue-500">
+               Ganti Logo (1070 x 780 px)
+             </p>
+          </div>
+        </div>
+      )}
+
       {onPrint && (
         <button
           onClick={onPrint}
@@ -162,6 +210,18 @@ export default function UploadPanel({
           </div>
         </div>
       </div>
+      
+      {isCropperOpen && (
+        <LogoCropperModal
+          isOpen={isCropperOpen}
+          onClose={() => {
+            setIsCropperOpen(false);
+            setPendingLogo(null);
+          }}
+          imageSrc={pendingLogo}
+          onSave={handleLogoSave}
+        />
+      )}
     </div>
   );
 }

@@ -73,6 +73,92 @@ export default function LayoutGenerator({
     email: "marketing@iklann.id",
     paperSize: "a4",
   });
+  
+  const [customLogo, setCustomLogo] = useState<string | null>(null);
+
+  // Load logo from localStorage
+  useEffect(() => {
+    const savedLogo = localStorage.getItem("custom_logo_v1");
+    if (savedLogo) {
+      setCustomLogo(savedLogo);
+    }
+  }, []);
+
+  const handleLogoUpload = (fileOrString: File | string) => {
+    const processLogo = (logoString: string) => {
+      // Check if any card has specific logo
+      const hasSpecificLogo = cards.some(c => c.customLogo);
+
+      if (hasSpecificLogo) {
+        Swal.fire({
+          title: 'Konfirmasi Penggantian Logo',
+          text: 'Beberapa kartu telah memiliki logo spesifik yang berbeda. Bagaimana Anda ingin menerapkan logo baru ini?',
+          icon: 'question',
+          showDenyButton: true,
+          showCancelButton: true,
+          confirmButtonText: 'Ganti Semua (Timpa Spesifik)',
+          denyButtonText: 'Hanya Default (Pertahankan Spesifik)',
+          cancelButtonText: 'Batal',
+          confirmButtonColor: '#f97316', // Orange-500
+          denyButtonColor: '#3b82f6', // Blue-500
+        }).then((result) => {
+          if (result.isConfirmed) {
+            // Replace ALL: Update global + Clear specific
+            setCustomLogo(logoString);
+            try {
+              localStorage.setItem("custom_logo_v1", logoString);
+            } catch (e) { console.error(e); }
+
+            // Clear specific logos on all cards
+            const updatedCards = cards.map(c => {
+              if (c.customLogo) {
+                // Create a new object to avoid mutation
+                const newCard = { ...c };
+                delete newCard.customLogo;
+                return newCard;
+              }
+              return c;
+            });
+            setCards(updatedCards);
+            
+            Swal.fire('Berhasil', 'Logo telah diterapkan ke seluruh kartu.', 'success');
+          } else if (result.isDenied) {
+            // Replace Default Only: Update global only
+            setCustomLogo(logoString);
+            try {
+              localStorage.setItem("custom_logo_v1", logoString);
+            } catch (e) { console.error(e); }
+            
+            Swal.fire('Berhasil', 'Logo default diperbarui. Kartu dengan logo spesifik tidak berubah.', 'success');
+          }
+        });
+      } else {
+        // No specific logos, straightforward update
+        setCustomLogo(logoString);
+        try {
+          localStorage.setItem("custom_logo_v1", logoString);
+        } catch (err) {
+          console.error("Failed to save logo to localStorage (likely too big)", err);
+          Swal.fire({
+            icon: "warning",
+            title: "Peringatan Penyimpanan",
+            text: "Logo berhasil diubah, namun ukurannya terlalu besar untuk disimpan permanen. Logo akan hilang jika halaman direfresh.",
+          });
+        }
+      }
+    };
+
+    if (typeof fileOrString === 'string') {
+      processLogo(fileOrString);
+    } else {
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        const result = e.target?.result as string;
+        processLogo(result);
+      };
+      reader.readAsDataURL(fileOrString);
+    }
+  };
 
   // Refs for callbacks to avoid dependency cycles
   const onSettingsChangeRef = useRef(onSettingsChange);
@@ -1263,6 +1349,7 @@ export default function LayoutGenerator({
                 onUndo: undo,
                 onRedo: redo,
               }}
+              onLogoUpload={handleLogoUpload}
             />
           )}
           {activeLeftPanel === "settings" && (
@@ -1367,6 +1454,7 @@ export default function LayoutGenerator({
                     onMoveDown={moveDownCard}
                     isLast={index === cards.length - 1}
                     paperSize={settings.paperSize}
+                    customLogo={customLogo}
                   />
                 </div>
               ))}
