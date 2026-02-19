@@ -6,6 +6,16 @@ export default function DownloadProgress() {
   const [status, setStatus] = useState<"idle" | "preparing" | "downloading" | "done">("idle");
   const [fileName, setFileName] = useState("");
 
+  const getFileDescription = (name: string) => {
+    const lowerName = name.toLowerCase();
+    if (lowerName.endsWith('.pdf')) return 'file PDF';
+    if (lowerName.endsWith('.png')) return 'file PNG';
+    if (lowerName.endsWith('.jpg') || lowerName.endsWith('.jpeg')) return 'file JPG';
+    if (lowerName.endsWith('.zip')) return 'file ZIP';
+    if (lowerName.endsWith('.json')) return 'Backup Data';
+    return 'file';
+  };
+
   useEffect(() => {
     const handleStart = (e: CustomEvent) => {
       setStatus("preparing");
@@ -59,14 +69,14 @@ export default function DownloadProgress() {
         {/* Text Content */}
         <div className="flex-1 min-w-0">
           <h4 className="font-medium text-sm  truncate">
-            {status === "done" ? "Unduhan Selesai!" : "Menyiapkan Desain..."}
+            {status === "done" ? "Unduhan Selesai!" : `Menyiapkan ${getFileDescription(fileName)}...`}
           </h4>
           <p className="text-xs text-gray-400 truncate mt-1">
             {status === "done" 
               ? `${fileName} berhasil disimpan` 
               : status === "preparing" 
                 ? "Merender halaman..." 
-                : "Mengunduh file PDF..."}
+                : `Mengunduh ${getFileDescription(fileName)}...`}
           </p>
           
           {/* Progress Bar (Fake) */}

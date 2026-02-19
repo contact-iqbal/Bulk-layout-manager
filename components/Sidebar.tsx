@@ -2,7 +2,7 @@
 
 import Image from "next/image";
 
-type LeftPanelMode = "upload" | "settings" | null;
+type LeftPanelMode = "upload" | "settings" | "storage" | null;
 
 interface SidebarProps {
   activeLeftPanel: LeftPanelMode;
@@ -29,6 +29,7 @@ export function MiniSidebar({
       </div>
 
       <button
+        id="btn-upload"
         onClick={() =>
           setActiveLeftPanel(activeLeftPanel === "upload" ? null : "upload")
         }
@@ -51,6 +52,7 @@ export function MiniSidebar({
       </button>
 
       <button
+        id="btn-settings"
         onClick={() =>
           setActiveLeftPanel(activeLeftPanel === "settings" ? null : "settings")
         }
@@ -73,6 +75,30 @@ export function MiniSidebar({
       </button>
 
       <button
+        id="btn-storage"
+        onClick={() =>
+          setActiveLeftPanel(activeLeftPanel === "storage" ? null : "storage")
+        }
+        className={`p-3 mb-4 rounded-xl transition ${activeLeftPanel === "storage" ? "text-orange-600 bg-orange-50" : "text-gray-400 hover:text-orange-600"}`}
+        title="Storage & Data"
+      >
+        <svg
+          className="w-6 h-6"
+          fill="none"
+          stroke="currentColor"
+          viewBox="0 0 24 24"
+        >
+          <path
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            strokeWidth="2"
+            d="M4 7v10c0 2.21 3.582 4 8 4s8-1.79 8-4V7M4 7c0 2.21 3.582 4 8 4s8-1.79 8-4M4 7c0-2.21 3.582-4 8-4s8 1.79 8 4m0 5c0 2.21-3.582 4-8 4s-8-1.79-8-4"
+          ></path>
+        </svg>
+      </button>
+
+      <button
+        id="btn-maps"
         onClick={toggleMaps}
         className={`p-3 mb-4 rounded-xl transition ${isMapsOpen ? "text-orange-600 bg-orange-50" : "text-gray-400 hover:text-orange-600"}`}
         title="Maps"
@@ -108,7 +134,7 @@ export function MainSidebar({
   // The PHP version creates a persistent sidebar area.
 
   return (
-    <div className="no-print w-[300px] bg-white border-r border-gray-200 p-6 z-50 shrink-0">
+    <div className="no-print w-[300px] bg-white border-r border-gray-200 p-6 z-50 shrink-0 h-full overflow-y-auto">
       {children}
     </div>
   );

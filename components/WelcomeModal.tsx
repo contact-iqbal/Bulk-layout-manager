@@ -3,6 +3,8 @@
 import { useState, useEffect, useRef } from "react";
 import { getReleaseNotes, ReleaseNote } from "@/app/actions";
 import Draggable from "react-draggable";
+import { driver } from "driver.js";
+import "driver.js/dist/driver.css";
 
 interface WelcomeModalProps {
   isOpen: boolean;
@@ -41,6 +43,70 @@ export default function WelcomeModal({
       localStorage.setItem("dlayout_welcome_seen_v1.0", "true");
     }
     onNewProject();
+  };
+
+  const handleTour = () => {
+    onClose();
+    
+    // Slight delay to allow modal to close completely
+    setTimeout(() => {
+      const driverObj = driver({
+        showProgress: true,
+        animate: true,
+        doneBtnText: 'Selesai',
+        nextBtnText: 'Lanjut',
+        prevBtnText: 'Kembali',
+        steps: [
+          { 
+            element: '#btn-upload', 
+            popover: { 
+              title: 'Upload Gambar', 
+              description: 'Mulai dengan mengupload gambar desain Anda di sini. Anda bisa upload banyak gambar sekaligus.',
+              side: "right", 
+              align: 'start' 
+            } 
+          },
+          { 
+            element: '#btn-settings', 
+            popover: { 
+              title: 'Pengaturan', 
+              description: 'Di pengaturan anda bisa mengatur teks seperti pada section Kontak Kami',
+              side: "right", 
+              align: 'start' 
+            } 
+          },
+          { 
+            element: '#btn-storage', 
+            popover: { 
+              title: 'Manajemen Data', 
+              description: 'Kelola data yang tersimpan, export backup, atau hapus data jika diperlukan.',
+              side: "right", 
+              align: 'start' 
+            } 
+          },
+          { 
+            element: '#btn-maps', 
+            popover: { 
+              title: 'Peta Lokasi', 
+              description: 'Cari dan tambahkan peta lokasi untuk setiap kartu desain Anda.',
+              side: "right", 
+              align: 'start' 
+            } 
+          },
+          { 
+            element: '#main-content', 
+            popover: { 
+              title: 'Area Kerja', 
+              description: 'Di sini kartu-kartu Anda akan muncul. Anda bisa mengedit teks, memindahkan posisi, atau menghapus kartu.',
+              side: "top", 
+              align: 'center' 
+            } 
+          }
+        ]
+      });
+  
+      driverObj.drive();
+    }, 300);
   };
 
   if (!isVisible && !isOpen) return null;
@@ -112,11 +178,30 @@ export default function WelcomeModal({
                     </div>
                   </div>
                 </button>
+
+                <button
+                  onClick={handleTour}
+                  className="w-full text-left group"
+                >
+                  <div className="flex items-center gap-3 p-3 hover:bg-gray-200 transition-colors">
+                    <div className="w-8 h-8 bg-blue-100 flex items-center justify-center text-blue-500 group-hover:text-blue-700 transition-colors">
+                      <i className="fa-solid fa-location-arrow text-sm"></i>
+                    </div>
+                    <div>
+                      <div className="text-gray-600 group-hover:text-gray-900 font-medium text-sm transition-colors">
+                        Take a Tour
+                      </div>
+                      <div className="text-gray-400 text-xs">
+                        Pelajari fitur aplikasi
+                      </div>
+                    </div>
+                  </div>
+                </button>
               </div>
             </div>
 
             <div className="mt-auto">
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2 mb-4">
                 <input
                   type="checkbox"
                   id="dontShow"
@@ -130,6 +215,18 @@ export default function WelcomeModal({
                 >
                   Jangan tampilkan lagi saat memulai
                 </label>
+              </div>
+
+              <div className="pt-4 border-t border-gray-200">
+                 <a 
+                   href="/documentation/index.html" 
+                   target="_blank" 
+                   rel="noopener noreferrer"
+                   className="text-[10px] text-gray-400 hover:text-orange-500 transition-colors flex items-center gap-1.5"
+                 >
+                   <i className="fa-regular fa-circle-question"></i>
+                   Butuh bantuan? Baca dokumentasi
+                 </a>
               </div>
             </div>
           </div>

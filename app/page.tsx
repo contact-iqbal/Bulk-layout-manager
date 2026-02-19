@@ -8,6 +8,7 @@ import WelcomeModal from "@/components/WelcomeModal";
 import DownloadProgress from "@/components/DownloadProgress";
 import BottomNavbar from "@/components/BottomNavbar";
 import Cookies from "js-cookie";
+import Swal from "sweetalert2";
 
 export default function Home() {
   // Tab State
@@ -160,7 +161,6 @@ export default function Home() {
 
   const handleTabClose = async (id: string) => {
     if (unsavedTabs.has(id)) {
-      const Swal = (await import("sweetalert2")).default;
       const result = await Swal.fire({
         title: "Tutup tab?",
         text: "Tab ini memiliki riwayat aksi yang akan hilang jika ditutup.",
@@ -243,7 +243,12 @@ export default function Home() {
             );
           } else {
              // Fallback if no tab is active (should not happen usually)
-             alert("Silakan buka tab terlebih dahulu.");
+             Swal.fire({
+               icon: "warning",
+               title: "Perhatian",
+               text: "Silakan buka tab terlebih dahulu.",
+               confirmButtonColor: "#3b82f6",
+             });
           }
         }}
         onNewTab={handleNewTab}

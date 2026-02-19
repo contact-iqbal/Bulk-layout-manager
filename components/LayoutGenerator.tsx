@@ -5,6 +5,7 @@ import { MiniSidebar, MainSidebar } from "@/components/Sidebar";
 import UploadPanel from "@/components/UploadPanel";
 import SettingsPanel from "@/components/SettingsPanel";
 import MapsPanel from "@/components/MapsPanel";
+import StoragePanel from "@/components/StoragePanel";
 import LayoutCard from "@/components/LayoutCard";
 import {
   saveCardToDB,
@@ -19,6 +20,7 @@ import useHistory from "@/hooks/useHistory";
 import html2canvas from "html2canvas";
 import jsPDF from "jspdf";
 import JSZip from "jszip";
+import Swal from "sweetalert2";
 
 interface Settings {
   addr1: string;
@@ -48,12 +50,13 @@ export default function LayoutGenerator({
   initialData,
 }: LayoutGeneratorProps) {
   const [activeLeftPanel, setActiveLeftPanel] = useState<
-    "upload" | "settings" | null
+    "upload" | "settings" | "storage" | null
   >("upload");
   const [isMapsOpen, setIsMapsOpen] = useState(false);
   const [hasLoaded, setHasLoaded] = useState(false);
   const contentRef = useRef<HTMLDivElement>(null);
   const [isExporting, setIsExporting] = useState(false);
+  const [isUploading, setIsUploading] = useState(false);
   const [showGrid, setShowGrid] = useState(false);
 
   // Settings State
@@ -178,7 +181,12 @@ export default function LayoutGenerator({
     
           // If no cards left, alert and stop
           if (cloned.querySelectorAll(".layout-card-wrapper").length === 0) {
-            alert("Tidak ada halaman yang cocok dengan rentang yang dipilih.");
+            Swal.fire({
+              icon: "warning",
+              title: "Perhatian",
+              text: "Tidak ada halaman yang cocok dengan rentang yang dipilih.",
+              confirmButtonColor: "#3b82f6",
+            });
             setIsExporting(false);
             window.dispatchEvent(new CustomEvent("export-end"));
             return;
@@ -488,7 +496,12 @@ export default function LayoutGenerator({
 
     } catch (error) {
         console.error("PDF Export failed:", error);
-        alert("Gagal mengekspor PDF.");
+        Swal.fire({
+          icon: "error",
+          title: "Gagal",
+          text: "Gagal mengekspor PDF.",
+          confirmButtonColor: "#dc2626",
+        });
     } finally {
         setIsExporting(false);
         window.dispatchEvent(new CustomEvent("export-end"));
@@ -803,7 +816,12 @@ export default function LayoutGenerator({
 
     } catch (error) {
         console.error("Image Export failed:", error);
-        alert(`Gagal mengekspor ${format.toUpperCase()}.`);
+        Swal.fire({
+          icon: "error",
+          title: "Gagal",
+          text: `Gagal mengekspor ${format.toUpperCase()}.`,
+          confirmButtonColor: "#dc2626",
+        });
     } finally {
         setIsExporting(false);
         window.dispatchEvent(new CustomEvent("export-end"));
@@ -813,6 +831,7 @@ export default function LayoutGenerator({
 
   // Upload Handler
   const handleUpload = async (files: FileList) => {
+    setIsUploading(true);
     const fileArray = Array.from(files);
     const cardPromises = fileArray.map((file) => {
       return new Promise<CardData>((resolve, reject) => {
@@ -849,6 +868,8 @@ export default function LayoutGenerator({
       setCards([...cards, ...newCards], `Upload ${newCards.length} Images`);
     } catch (error) {
       console.error("Upload failed:", error);
+    } finally {
+      setIsUploading(false);
     }
   };
 
@@ -1050,8 +1071,9 @@ export default function LayoutGenerator({
       // Only process if tabId matches
       if (e.detail && e.detail.tabId !== tabId) return;
 
-      const dbCards = await getAllCards(tabId);
-      const dbHistory = await getHistoryFromDB(tabId);
+      // Fetch ALL cards and ALL history from DB
+      const dbCards = await getAllCards(); // No tabId passed = get all
+      const dbHistory = await getHistoryFromDB(); // No tabId passed = get all
 
       const exportData = {
         version: "1.0",
@@ -1062,13 +1084,31 @@ export default function LayoutGenerator({
         timestamp: Date.now()
       };
 
+      // Format date for filename: dlayout_backup_(YYYY-MM-DD)
+      const date = new Date();
+      const year = date.getFullYear();
+      const month = String(date.getMonth() + 1).padStart(2, '0');
+      const day = String(date.getDate()).padStart(2, '0');
+      const dateStr = `${year}-${month}-${day}`;
+      const filename = `dlayout_backup_(${dateStr}).json`;
+
+      // Dispatch start event
+      window.dispatchEvent(new CustomEvent("export-start", {
+        detail: { fileName: filename }
+      }));
+      setIsExporting(true);
+
       const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(exportData));
       const downloadAnchorNode = document.createElement('a');
       downloadAnchorNode.setAttribute("href", dataStr);
-      downloadAnchorNode.setAttribute("download", `${tabTitle.replace(/[^a-z0-9\s-_]/gi, "").trim() || "layout"}.json`);
+      downloadAnchorNode.setAttribute("download", filename);
       document.body.appendChild(downloadAnchorNode); // required for firefox
       downloadAnchorNode.click();
       downloadAnchorNode.remove();
+
+      // Dispatch end event
+      setIsExporting(false);
+      window.dispatchEvent(new CustomEvent("export-end"));
     };
 
     const handleToggleGrid = (e: Event) => {
@@ -1141,6 +1181,12 @@ export default function LayoutGenerator({
           {activeLeftPanel === "settings" && (
             <SettingsPanel settings={settings} setSettings={updateSetting} />
           )}
+          {activeLeftPanel === "storage" && (
+            <StoragePanel 
+              cards={cards} 
+              onExportJSON={() => window.dispatchEvent(new CustomEvent("export-json-action", { detail: { tabId } }))} 
+            />
+          )}
         </MainSidebar>
       )}
 
@@ -1149,6 +1195,15 @@ export default function LayoutGenerator({
         ref={contentRef}
         className="flex-1 overflow-y-auto flex flex-col items-center bg-gray-100 h-full relative"
       >
+        {(!hasLoaded || isUploading) && (
+          <div className="absolute inset-0 z-50 flex flex-col items-center justify-center bg-white/80 backdrop-blur-sm">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-neutral-500 mb-4"></div>
+            <p className="text-gray-600 font-medium">
+              {isUploading ? "Memproses gambar..." : "Memuat layout..."}
+            </p>
+          </div>
+        )}
+
         {showGrid && (
           <div
             className="absolute inset-0 pointer-events-none z-0"

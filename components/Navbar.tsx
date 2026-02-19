@@ -1,6 +1,7 @@
 "use client";
 
 import { useRef, useState, useEffect } from "react";
+import Swal from "sweetalert2";
 
 interface NavbarProps {
   onUpload: (files: FileList) => void;
@@ -61,7 +62,12 @@ export default function Navbar({
         new CustomEvent("export-json-action", { detail: { tabId: activeTabId } })
       );
     } else {
-      alert("Tidak ada tab yang aktif.");
+      Swal.fire({
+        icon: "warning",
+        title: "Perhatian",
+        text: "Tidak ada tab yang aktif.",
+        confirmButtonColor: "#3b82f6",
+      });
     }
   };
 
@@ -92,11 +98,21 @@ export default function Navbar({
           if (json.version && json.cards) {
             onNewTab?.("layout", json.tabTitle || "Imported Layout", json);
           } else {
-            alert("File JSON tidak valid atau rusak!");
+            Swal.fire({
+              icon: "error",
+              title: "Error",
+              text: "File JSON tidak valid atau rusak!",
+              confirmButtonColor: "#dc2626",
+            });
           }
         } catch (error) {
           console.error("Invalid JSON file", error);
-          alert("File JSON tidak valid!");
+          Swal.fire({
+            icon: "error",
+            title: "Error",
+            text: "File JSON tidak valid!",
+            confirmButtonColor: "#dc2626",
+          });
         }
       };
       reader.readAsText(file);
@@ -343,6 +359,17 @@ export default function Navbar({
       </div>
 
       <div className="ml-auto flex items-center pr-2 relative">
+        <a
+          href="/documentation/index.html"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="mr-2 px-3 py-1.5 text-xs font-medium text-gray-600 hover:text-orange-600 hover:bg-orange-50 rounded-md transition-colors flex items-center gap-2"
+          title="Buka Dokumentasi"
+        >
+          <i className="fa-regular fa-circle-question"></i>
+          <span>Help</span>
+        </a>
+
         <button
           onClick={(e) => {
             e.stopPropagation();

@@ -93,13 +93,34 @@ export async function saveHistoryToDB(
 }
 
 export async function getHistoryFromDB(
-  tabId: string,
-): Promise<{ past: any[]; future: any[] } | null> {
+  tabId?: string,
+): Promise<any | null> {
   const db = await initDB();
   return new Promise((resolve, reject) => {
     const transaction = db.transaction([HISTORY_STORE], "readonly");
-    const request = transaction.objectStore(HISTORY_STORE).get(tabId);
-    request.onsuccess = () => resolve(request.result || null);
-    request.onerror = () => reject(request.error);
+    const store = transaction.objectStore(HISTORY_STORE);
+    
+    if (tabId) {
+      const request = store.get(tabId);
+      request.onsuccess = () => resolve(request.result || null);
+      request.onerror = () => reject(request.error);
+    } else {
+      const request = store.getAll();
+      request.onsuccess = () => resolve(request.result || []);
+      request.onerror = () => reject(request.error);
+    }
+  });
+}
+
+export async function clearAllData(): Promise<void> {
+  const db = await initDB();
+  return new Promise((resolve, reject) => {
+    const transaction = db.transaction([STORE_NAME, HISTORY_STORE], "readwrite");
+    
+    transaction.oncomplete = () => resolve();
+    transaction.onerror = () => reject(transaction.error);
+
+    transaction.objectStore(STORE_NAME).clear();
+    transaction.objectStore(HISTORY_STORE).clear();
   });
 }
