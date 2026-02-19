@@ -100,7 +100,7 @@ export default function UploadPanel({
           className="absolute inset-0 opacity-0 cursor-pointer w-full h-full"
         />
         <p className="text-[11px] font-bold text-gray-400 uppercase">
-          Drop Images or Backup JSON Here
+          Drop Images
         </p>
       </div>
       

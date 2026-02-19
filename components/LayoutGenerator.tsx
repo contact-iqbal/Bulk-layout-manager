@@ -78,11 +78,14 @@ export default function LayoutGenerator({
 
   // Load logo from localStorage
   useEffect(() => {
-    const savedLogo = localStorage.getItem("custom_logo_v1");
+    const savedLogo = localStorage.getItem(`custom_logo_${tabId}`);
     if (savedLogo) {
       setCustomLogo(savedLogo);
+    } else {
+      // If no custom logo for this tab, use null (will fallback to default in LayoutCard)
+      setCustomLogo(null);
     }
-  }, []);
+  }, [tabId]);
 
   const handleLogoUpload = (fileOrString: File | string) => {
     const processLogo = (logoString: string) => {
@@ -106,7 +109,7 @@ export default function LayoutGenerator({
             // Replace ALL: Update global + Clear specific
             setCustomLogo(logoString);
             try {
-              localStorage.setItem("custom_logo_v1", logoString);
+              localStorage.setItem(`custom_logo_${tabId}`, logoString);
             } catch (e) { console.error(e); }
 
             // Clear specific logos on all cards
@@ -126,7 +129,7 @@ export default function LayoutGenerator({
             // Replace Default Only: Update global only
             setCustomLogo(logoString);
             try {
-              localStorage.setItem("custom_logo_v1", logoString);
+              localStorage.setItem(`custom_logo_${tabId}`, logoString);
             } catch (e) { console.error(e); }
             
             Swal.fire('Berhasil', 'Logo default diperbarui. Kartu dengan logo spesifik tidak berubah.', 'success');
@@ -136,7 +139,7 @@ export default function LayoutGenerator({
         // No specific logos, straightforward update
         setCustomLogo(logoString);
         try {
-          localStorage.setItem("custom_logo_v1", logoString);
+          localStorage.setItem(`custom_logo_${tabId}`, logoString);
         } catch (err) {
           console.error("Failed to save logo to localStorage (likely too big)", err);
           Swal.fire({

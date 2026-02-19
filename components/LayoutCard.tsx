@@ -245,7 +245,7 @@ export default function LayoutCard({
       <div className="flex justify-between items-start mb-8">
         <div className="relative group/logo">
           <img
-            src={data.customLogo || customLogo || "https://files.catbox.moe/dienws.png"}
+            src={data.customLogo || customLogo || "/assets/logo.png"}
             className="w-40 h-24 object-contain rounded transition-all group-hover/logo:brightness-90"
             alt="Logo"
           />
