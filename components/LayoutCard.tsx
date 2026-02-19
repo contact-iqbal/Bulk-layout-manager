@@ -288,8 +288,22 @@ export default function LayoutCard({
           {/* Using standard img tag for blob/dataUrl usually better for local previews than next/image if optimization not needed */}
           <img
             src={data.imgSrc}
-            className="w-full h-full object-cover rounded border border-gray-100 shadow-sm"
+            className="w-full h-full object-cover rounded border border-gray-100 shadow-sm cursor-pointer hover:opacity-90 transition-opacity"
             alt="Upload"
+            title="Double click to edit"
+            onDoubleClick={(e) => {
+              e.stopPropagation();
+              window.dispatchEvent(
+                new CustomEvent("open-image-tab", {
+                  detail: {
+                    src: data.imgSrc,
+                    name: data.jenis || "Image",
+                    cardId: data.id,
+                    sourceTabId: data.tabId,
+                  },
+                })
+              );
+            }}
           />
         </div>
         <div className="w-1/3 flex flex-col">

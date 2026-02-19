@@ -7,6 +7,7 @@ import LayoutGenerator from "@/components/LayoutGenerator";
 import ImageViewer from "@/components/ImageViewer";
 import WelcomeModal from "@/components/WelcomeModal";
 import DownloadProgress from "@/components/DownloadProgress";
+import { CardData, saveTabsToDB, getTabsFromDB } from "@/app/lib/db";
 import BottomNavbar from "@/components/BottomNavbar";
 import Cookies from "js-cookie";
 import Swal from "sweetalert2";
@@ -40,8 +41,8 @@ export default function Home() {
     };
 
     const handleOpenImageTab = (e: CustomEvent) => {
-      const { src, name } = e.detail;
-      handleNewTab("image", name, { src, name });
+      const { src, name, cardId, sourceTabId } = e.detail;
+      handleNewTab("image", name, { src, name, cardId, sourceTabId });
     };
 
     window.addEventListener("zoom-update", handleZoomUpdate as EventListener);
@@ -88,7 +89,7 @@ export default function Home() {
     });
   };
 
-  // Load tabs from Cookies on mount
+  // Load tabs from DB on mount
   useEffect(() => {
     // Check if welcome modal has been seen
     const hasSeenWelcome = localStorage.getItem("dlayout_welcome_seen_v1.0");
@@ -96,54 +97,128 @@ export default function Home() {
       setShowWelcomeModal(true);
     }
 
-    const savedTabs = Cookies.get("dlayout_tabs");
-    const savedActiveTab = Cookies.get("dlayout_active_tab");
-
-    if (savedTabs) {
+    const loadTabs = async () => {
       try {
-        const parsedTabs = JSON.parse(savedTabs);
-        // Reconstruct content component since it can't be JSON serialized
-        const restoredTabs = parsedTabs.map((t: any) => ({
-          ...t,
-          content: null, // Will be rendered dynamically
-        }));
-        setTabs(restoredTabs);
-        setActiveTabId(savedActiveTab || restoredTabs[0]?.id || "");
-      } catch (e) {
-        console.error("Failed to parse tabs cookie", e);
-        initializeDefaultTab();
+        let restoredTabs = await getTabsFromDB();
+
+        // Fallback: If DB empty, try localStorage (migration)
+        if (!restoredTabs || restoredTabs.length === 0) {
+          const localTabs = localStorage.getItem("dlayout_tabs");
+          if (localTabs) {
+            try {
+              restoredTabs = JSON.parse(localTabs);
+            } catch (e) {
+              console.error("Failed to parse local tabs", e);
+            }
+          }
+        }
+
+        // Fallback: If still empty, try cookies (older migration)
+        if (!restoredTabs || restoredTabs.length === 0) {
+           const cookieTabs = Cookies.get("dlayout_tabs");
+           if (cookieTabs) {
+             try {
+               restoredTabs = JSON.parse(cookieTabs);
+             } catch (e) {
+               console.error("Failed to parse cookie tabs", e);
+             }
+           }
+        }
+
+        if (restoredTabs && restoredTabs.length > 0) {
+          setTabs(restoredTabs.map((t: any) => ({
+            ...t,
+            content: null // Content will be rendered by renderedTabs
+          })));
+          
+          const active = localStorage.getItem("dlayout_active_tab") || Cookies.get("dlayout_active_tab");
+          if (active) setActiveTabId(active);
+          else setActiveTabId(restoredTabs[0].id);
+        } else {
+          // Initialize default if no tabs found
+          const defaultId = `tab-${Date.now()}`;
+          setTabs([
+            {
+              id: defaultId,
+              title: "Layout Generator",
+              content: null,
+              canClose: false,
+            },
+          ]);
+          setActiveTabId(defaultId);
+        }
+      } catch (error) {
+        console.error("Failed to load tabs:", error);
+        // Initialize default on error
+        const defaultId = `tab-${Date.now()}`;
+        setTabs([
+          {
+            id: defaultId,
+            title: "Layout Generator",
+            content: null,
+            canClose: false,
+          },
+        ]);
+        setActiveTabId(defaultId);
+      } finally {
+        setIsLoaded(true);
       }
-    } else {
-      initializeDefaultTab();
-    }
-    setIsLoaded(true);
+    };
+
+    loadTabs();
   }, []);
 
   const initializeDefaultTab = () => {
-    const defaultId = "tab-1";
+    const defaultId = `tab-${Date.now()}`;
     setTabs([
       {
         id: defaultId,
         title: "Layout Generator",
         content: null,
         canClose: false,
+        initialData: undefined,
+        type: undefined
       },
     ]);
     setActiveTabId(defaultId);
   };
 
-  // Save tabs to Cookies whenever they change
+  // Save tabs to DB whenever they change
   useEffect(() => {
     if (!isLoaded) return;
 
-    // Save only serializable data (exclude content)
-    const tabsToSave = tabs.map(({ id, title, canClose }) => ({
+    // Save serializable data including type and initialData (for images)
+    // Use IndexedDB (via saveTabsToDB) instead of localStorage to handle larger data
+    const tabsToSave = tabs.map(({ id, title, canClose, type, initialData }) => ({
       id,
       title,
       canClose,
+      type,
+      initialData
     }));
-    Cookies.set("dlayout_tabs", JSON.stringify(tabsToSave), { expires: 365 });
-    Cookies.set("dlayout_active_tab", activeTabId, { expires: 365 });
+    
+    // Save to DB asynchronously
+    saveTabsToDB(tabsToSave).catch(e => {
+      console.error("Failed to save tabs to DB", e);
+    });
+
+    try {
+      // Save active tab ID to localStorage (lightweight)
+      localStorage.setItem("dlayout_active_tab", activeTabId);
+      
+      // Cleanup old storage to avoid confusion and free up space
+      Cookies.remove("dlayout_tabs");
+      Cookies.remove("dlayout_active_tab");
+      
+      // We can also remove the localStorage tabs entry if migration is confirmed,
+      // but let's keep it for now or maybe clear it to solve the "QuotaExceeded" issue?
+      // Since we are now using DB, we SHOULD clear the localStorage tabs to fix the user's issue.
+      if (localStorage.getItem("dlayout_tabs")) {
+        localStorage.removeItem("dlayout_tabs");
+      }
+    } catch (e) {
+      console.error("Failed to save active tab or cleanup", e);
+    }
   }, [tabs, activeTabId, isLoaded]);
 
   const handleAddTab = (initialData?: any) => {
@@ -185,6 +260,8 @@ export default function Home() {
         src={t.initialData?.src} 
         name={t.initialData?.name} 
         tabId={t.id}
+        initialData={t.initialData}
+        onClose={() => handleTabClose(t.id)}
       />
     ) : (
       <LayoutGenerator
@@ -317,8 +394,8 @@ export default function Home() {
         }}
         onNewTab={handleNewTab}
         activeTabTitle={tabs.find((t) => t.id === activeTabId)?.title}
-        activePaperSize={tabSettings[activeTabId]?.paperSize || "a4"}
         activeTabId={activeTabId}
+        isImageViewer={tabs.find(t => t.id === activeTabId)?.type === "image"}
       />
       <TabSystem
         tabs={renderedTabs}

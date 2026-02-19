@@ -1313,6 +1313,16 @@ export default function LayoutGenerator({
     return () => window.removeEventListener("resize", updateOrigin);
   }, [showRulers, zoom, activeLeftPanel, cards.length]);
 
+  useEffect(() => {
+    const handleUpdateCardImage = (e: CustomEvent) => {
+      if (e.detail && e.detail.tabId === tabId) {
+        updateCard(e.detail.cardId, "imgSrc", e.detail.newImageSrc);
+      }
+    };
+    window.addEventListener("update-card-image", handleUpdateCardImage as EventListener);
+    return () => window.removeEventListener("update-card-image", handleUpdateCardImage as EventListener);
+  }, [tabId, updateCard]);
+
   const handleScroll = (e: React.UIEvent<HTMLDivElement>) => {
     setScrollPos({
       x: e.currentTarget.scrollLeft,

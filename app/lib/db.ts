@@ -13,9 +13,10 @@ export interface CardData {
 }
 
 const DB_NAME = "LayoutGeneratorDB";
-const DB_VERSION = 2; // Incremented for history store
+const DB_VERSION = 3; // Incremented for tabs store
 const STORE_NAME = "cards";
 const HISTORY_STORE = "history";
+const TABS_STORE = "tabs";
 
 export function initDB(): Promise<IDBDatabase> {
   return new Promise((resolve, reject) => {
@@ -27,6 +28,9 @@ export function initDB(): Promise<IDBDatabase> {
       }
       if (!db.objectStoreNames.contains(HISTORY_STORE)) {
         db.createObjectStore(HISTORY_STORE, { keyPath: "tabId" });
+      }
+      if (!db.objectStoreNames.contains(TABS_STORE)) {
+        db.createObjectStore(TABS_STORE, { keyPath: "id" });
       }
     };
     request.onsuccess = (e) => {
@@ -104,25 +108,56 @@ export async function getHistoryFromDB(
     
     if (tabId) {
       const request = store.get(tabId);
-      request.onsuccess = () => resolve(request.result || null);
+      request.onsuccess = () => resolve(request.result);
       request.onerror = () => reject(request.error);
     } else {
-      const request = store.getAll();
-      request.onsuccess = () => resolve(request.result || []);
-      request.onerror = () => reject(request.error);
+       const request = store.getAll();
+       request.onsuccess = () => resolve(request.result);
+       request.onerror = () => reject(request.error);
     }
+  });
+}
+
+export async function saveTabsToDB(tabs: any[]): Promise<void> {
+  const db = await initDB();
+  return new Promise((resolve, reject) => {
+    const transaction = db.transaction([TABS_STORE], "readwrite");
+    const store = transaction.objectStore(TABS_STORE);
+    
+    // Clear existing tabs first
+    store.clear();
+
+    // Add all tabs
+    tabs.forEach(tab => {
+      store.put(tab);
+    });
+
+    transaction.oncomplete = () => resolve();
+    transaction.onerror = () => reject(transaction.error);
+  });
+}
+
+export async function getTabsFromDB(): Promise<any[]> {
+  const db = await initDB();
+  return new Promise((resolve, reject) => {
+    const transaction = db.transaction([TABS_STORE], "readonly");
+    const request = transaction.objectStore(TABS_STORE).getAll();
+    request.onsuccess = () => resolve(request.result || []);
+    request.onerror = () => reject(request.error);
   });
 }
 
 export async function clearAllData(): Promise<void> {
   const db = await initDB();
   return new Promise((resolve, reject) => {
-    const transaction = db.transaction([STORE_NAME, HISTORY_STORE], "readwrite");
-    
-    transaction.oncomplete = () => resolve();
-    transaction.onerror = () => reject(transaction.error);
-
+    const transaction = db.transaction(
+      [STORE_NAME, HISTORY_STORE, TABS_STORE],
+      "readwrite",
+    );
     transaction.objectStore(STORE_NAME).clear();
     transaction.objectStore(HISTORY_STORE).clear();
+    transaction.objectStore(TABS_STORE).clear();
+    transaction.oncomplete = () => resolve();
+    transaction.onerror = () => reject(transaction.error);
   });
 }
