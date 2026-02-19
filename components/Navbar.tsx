@@ -191,6 +191,14 @@ export default function Navbar({
           action: () => onNewTab?.("layout", "Layout Generator"),
         },
         {
+          label: "Storage",
+          action: () => {
+            window.dispatchEvent(
+              new CustomEvent("open-storage-modal", { detail: { tabId: activeTabId } })
+            );
+          },
+        },
+        {
           label: showGrid ? "Disable Grid" : "Enable Grid",
           shortcut: "Ctrl+'",
           action: () => toggleGrid(),
@@ -287,6 +295,7 @@ export default function Navbar({
         {menuItems.map((menu) => (
           <div key={menu.label} className="relative">
             <button
+              id={`nav-menu-${menu.label.toLowerCase()}`}
               className={`px-3 py-1.5 hover:bg-gray-100 rounded-md transition-colors ${
                 activeMenu === menu.label ? "bg-gray-100" : ""
               }`}

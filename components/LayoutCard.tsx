@@ -255,7 +255,7 @@ export default function LayoutCard({
         </div>
       </div>
 
-      <div className="flex gap-4 border-t-8 border-[#F36F21] pt-6 items-stretch">
+      <div className="flex gap-4 border-t-3 border-[#F36F21] pt-6 items-stretch">
         <div className="flex-grow">
           <div className="print-exact bg-[#F36F21] text-white px-4 py-1 inline-block font-black uppercase text-xs mb-4">
             Informasi Media

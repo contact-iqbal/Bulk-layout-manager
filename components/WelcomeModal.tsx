@@ -67,19 +67,19 @@ export default function WelcomeModal({
             } 
           },
           { 
-            element: '#btn-settings', 
+            element: '#btn-objects', 
             popover: { 
-              title: 'Pengaturan', 
-              description: 'Di pengaturan anda bisa mengatur teks seperti pada section Kontak Kami',
+              title: 'Objek', 
+              description: 'Manage object yang ada di area kerja kamu, dengan lebih teratur',
               side: "right", 
               align: 'start' 
             } 
           },
           { 
-            element: '#btn-storage', 
+            element: '#btn-settings', 
             popover: { 
-              title: 'Manajemen Data', 
-              description: 'Kelola data yang tersimpan, export backup, atau hapus data jika diperlukan.',
+              title: 'Pengaturan', 
+              description: 'Di pengaturan anda bisa mengatur teks default seperti pada section Kontak Kami.',
               side: "right", 
               align: 'start' 
             } 
@@ -91,6 +91,15 @@ export default function WelcomeModal({
               description: 'Cari dan tambahkan peta lokasi untuk setiap kartu desain Anda.',
               side: "right", 
               align: 'start' 
+            } 
+          },
+          { 
+            element: '#nav-menu-view', 
+            popover: { 
+              title: 'Menu Tampilan & Storage', 
+              description: 'Akses fitur Storage (Manajemen Data), Grid, dan Rulers melalui menu dropdown ini.',
+              side: "bottom", 
+              align: 'center' 
             } 
           },
           { 

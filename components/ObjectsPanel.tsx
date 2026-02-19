@@ -1,7 +1,7 @@
 "use client";
 
 import { CardData } from "@/app/lib/db";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Image from "next/image";
 
 interface ObjectsPanelProps {
@@ -11,11 +11,20 @@ interface ObjectsPanelProps {
 }
 
 export default function ObjectsPanel({ cards, onCardSelect, onUpdateCard }: ObjectsPanelProps) {
+  const [isLoading, setIsLoading] = useState(true);
   const [expandedCards, setExpandedCards] = useState<Record<string, boolean>>({});
   const [expandedImages, setExpandedImages] = useState<Record<string, boolean>>({});
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editValue, setEditValue] = useState("");
   const [editingField, setEditingField] = useState<{id: string, field: keyof CardData} | null>(null);
+
+  useEffect(() => {
+    // Simulate loading delay to prevent lag during panel opening animation
+    const timer = setTimeout(() => {
+      setIsLoading(false);
+    }, 300);
+    return () => clearTimeout(timer);
+  }, []);
 
   const toggleExpand = (id: string) => {
     setExpandedCards((prev) => ({
@@ -66,6 +75,24 @@ export default function ObjectsPanel({ cards, onCardSelect, onUpdateCard }: Obje
       }
     }
   };
+
+  if (isLoading) {
+    return (
+      <div className="flex flex-col h-full">
+        <div className="mb-6">
+          <h3 className="font-black text-gray-800 uppercase text-xs tracking-widest">
+            Objects
+          </h3>
+        </div>
+        <div className="flex-1 flex items-center justify-center text-gray-400">
+          <div className="flex flex-col items-center">
+             <i className="fa-solid fa-spinner fa-spin text-2xl text-orange-500 mb-2"></i>
+             <span className="text-xs font-medium">Memuat Objects...</span>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="flex flex-col h-full">

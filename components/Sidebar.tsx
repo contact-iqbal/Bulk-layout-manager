@@ -2,7 +2,7 @@
 
 import Image from "next/image";
 
-type LeftPanelMode = "upload" | "settings" | "storage" | null;
+type LeftPanelMode = "upload" | "settings" | null;
 type RightPanelMode = "objects" | "maps";
 
 interface SidebarProps {
@@ -92,29 +92,6 @@ export function MiniSidebar({
             strokeLinejoin="round"
             strokeWidth="2"
             d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4"
-          ></path>
-        </svg>
-      </button>
-
-      <button
-        id="btn-storage"
-        onClick={() =>
-          setActiveLeftPanel(activeLeftPanel === "storage" ? null : "storage")
-        }
-        className={`p-3 mb-4 rounded-xl transition ${activeLeftPanel === "storage" ? "text-orange-600 bg-orange-50" : "text-gray-400 hover:text-orange-600"}`}
-        title="Storage & Data"
-      >
-        <svg
-          className="w-6 h-6"
-          fill="none"
-          stroke="currentColor"
-          viewBox="0 0 24 24"
-        >
-          <path
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            strokeWidth="2"
-            d="M4 7v10c0 2.21 3.582 4 8 4s8-1.79 8-4V7M4 7c0 2.21 3.582 4 8 4s8-1.79 8-4M4 7c0-2.21 3.582-4 8-4s8 1.79 8 4m0 5c0 2.21-3.582 4-8 4s-8-1.79-8-4"
           ></path>
         </svg>
       </button>

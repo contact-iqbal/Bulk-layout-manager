@@ -92,6 +92,7 @@ const LeafletMap = dynamic(
 );
 
 export default function MapsPanel({ tabId, onSelectLocation }: MapsPanelProps) {
+  const [isInitializing, setIsInitializing] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -101,6 +102,13 @@ export default function MapsPanel({ tabId, onSelectLocation }: MapsPanelProps) {
   });
   const [address, setAddress] = useState("");
   const [copySuccess, setCopySuccess] = useState(false);
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setIsInitializing(false);
+    }, 300);
+    return () => clearTimeout(timer);
+  }, []);
 
   // Load saved search from localStorage
   useEffect(() => {
@@ -205,8 +213,19 @@ export default function MapsPanel({ tabId, onSelectLocation }: MapsPanelProps) {
     });
   };
 
+  if (isInitializing) {
+    return (
+      <div className="flex flex-col h-full items-center justify-center text-gray-400">
+        <div className="flex flex-col items-center">
+           <i className="fa-solid fa-spinner fa-spin text-2xl text-orange-500 mb-2"></i>
+           <span className="text-xs font-medium">Memuat Peta...</span>
+        </div>
+      </div>
+    );
+  }
+
   return (
-    <div className="h-full flex flex-col">
+    <div className="flex flex-col h-full relative">
       <div className="flex items-center justify-between mb-4">
         <h3 className="font-black text-gray-800 uppercase text-xs tracking-widest">
           Koordinat Lokasi

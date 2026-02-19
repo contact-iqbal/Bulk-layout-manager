@@ -5,8 +5,8 @@ import { MiniSidebar, MainSidebar } from "@/components/Sidebar";
 import UploadPanel from "@/components/UploadPanel";
 import SettingsPanel from "@/components/SettingsPanel";
 import MapsPanel from "@/components/MapsPanel";
-import StoragePanel from "@/components/StoragePanel";
 import ObjectsPanel from "@/components/ObjectsPanel";
+import StorageModal from "@/components/StorageModal";
 import LayoutCard from "@/components/LayoutCard";
 import {
   saveCardToDB,
@@ -52,8 +52,9 @@ export default function LayoutGenerator({
   initialData,
 }: LayoutGeneratorProps) {
   const [activeLeftPanel, setActiveLeftPanel] = useState<
-    "upload" | "settings" | "storage" | null
+    "upload" | "settings" | null
   >("upload");
+  const [isStorageModalOpen, setIsStorageModalOpen] = useState(false);
   const [rightPanels, setRightPanels] = useState<("objects" | "maps")[]>([]);
   const [hasLoaded, setHasLoaded] = useState(false);
   const contentRef = useRef<HTMLDivElement>(null);
@@ -1181,6 +1182,17 @@ export default function LayoutGenerator({
   }, [undo, redo, tabId, handleDownloadPDF, zoom]);
 
   useEffect(() => {
+    const handleOpenStorageModal = (e: Event) => {
+      const customEvent = e as CustomEvent;
+      if (customEvent.detail && customEvent.detail.tabId === tabId) {
+        setIsStorageModalOpen(true);
+      }
+    };
+    window.addEventListener("open-storage-modal", handleOpenStorageModal);
+    return () => window.removeEventListener("open-storage-modal", handleOpenStorageModal);
+  }, [tabId]);
+
+  useEffect(() => {
     const handleToggleRulers = (e: Event) => {
       const customEvent = e as CustomEvent;
       setShowRulers(customEvent.detail?.show);
@@ -1255,12 +1267,6 @@ export default function LayoutGenerator({
           )}
           {activeLeftPanel === "settings" && (
             <SettingsPanel settings={settings} setSettings={updateSetting} />
-          )}
-          {activeLeftPanel === "storage" && (
-            <StoragePanel 
-              cards={cards} 
-              onExportJSON={() => window.dispatchEvent(new CustomEvent("export-json-action", { detail: { tabId } }))} 
-            />
           )}
         </MainSidebar>
       )}
@@ -1397,6 +1403,16 @@ export default function LayoutGenerator({
           ))}
         </div>
       )}
+      <StorageModal
+        isOpen={isStorageModalOpen}
+        onClose={() => setIsStorageModalOpen(false)}
+        cards={cards}
+        onExportJSON={() =>
+          window.dispatchEvent(
+            new CustomEvent("export-json-action", { detail: { tabId } })
+          )
+        }
+      />
     </div>
   );
 }
