@@ -22,13 +22,22 @@ interface LayoutCardProps {
   paperSize?: "a4" | "f4";
 }
 
-interface BufferedInputProps extends Omit<React.InputHTMLAttributes<HTMLInputElement>, 'onChange'> {
+interface BufferedInputProps extends Omit<
+  React.InputHTMLAttributes<HTMLInputElement>,
+  "onChange"
+> {
   value: string;
   onCommit: (value: string) => void;
   onChange?: (e: React.ChangeEvent<HTMLInputElement>) => void;
 }
 
-const BufferedInput = ({ value, onCommit, onChange, onBlur, ...props }: BufferedInputProps) => {
+const BufferedInput = ({
+  value,
+  onCommit,
+  onChange,
+  onBlur,
+  ...props
+}: BufferedInputProps) => {
   const [localValue, setLocalValue] = useState(value);
 
   useEffect(() => {
@@ -57,13 +66,22 @@ const BufferedInput = ({ value, onCommit, onChange, onBlur, ...props }: Buffered
   );
 };
 
-interface BufferedTextAreaProps extends Omit<React.TextareaHTMLAttributes<HTMLTextAreaElement>, 'onChange'> {
+interface BufferedTextAreaProps extends Omit<
+  React.TextareaHTMLAttributes<HTMLTextAreaElement>,
+  "onChange"
+> {
   value: string;
   onCommit: (value: string) => void;
   onChange?: (e: React.ChangeEvent<HTMLTextAreaElement>) => void;
 }
 
-const BufferedTextArea = ({ value, onCommit, onChange, onBlur, ...props }: BufferedTextAreaProps) => {
+const BufferedTextArea = ({
+  value,
+  onCommit,
+  onChange,
+  onBlur,
+  ...props
+}: BufferedTextAreaProps) => {
   const [localValue, setLocalValue] = useState(value);
 
   useEffect(() => {
@@ -154,7 +172,7 @@ export default function LayoutCard({
               <i className="fa-solid fa-arrow-down w-3.5 text-center"></i>
               <span>Pindah ke Bawah</span>
             </button>
-            
+
             <button
               onClick={(e) => {
                 e.stopPropagation();
@@ -168,7 +186,7 @@ export default function LayoutCard({
             </button>
 
             <div className="my-1 border-t border-gray-100"></div>
-            
+
             <button
               onClick={(e) => {
                 e.stopPropagation();
@@ -182,7 +200,7 @@ export default function LayoutCard({
                   cancelButtonColor: "#3085d6",
                   confirmButtonText: "Ya, Hapus!",
                   cancelButtonText: "Batal",
-                  reverseButtons: true
+                  reverseButtons: true,
                 }).then((result) => {
                   if (result.isConfirmed) {
                     onDelete(data.id);
@@ -205,8 +223,9 @@ export default function LayoutCard({
           alt="Logo"
         />
         <div className="text-right genos uppercase text-3xl leading-none">
-          <span className="text-[#F36F21] genos">Klik, Bayar, <span className="text-[#002D3E] genos">Tayang</span></span>
-          
+          <span className="text-[#F36F21] genos">
+            Klik, Bayar, <span className="text-[#002D3E] genos">Tayang</span>
+          </span>
         </div>
       </div>
 
@@ -243,12 +262,12 @@ export default function LayoutCard({
           </div>
           <table className="w-full text-sm font-bold text-[#002D3E]">
             <tbody>
-              <tr>
+              <tr className="align-top">
                 <td className="w-24 text-gray-400 uppercase text-[10px]">
                   Jenis
                 </td>
                 <td>
-                  :
+                  <span className="align-top">:</span>{" "}
                   <BufferedInput
                     className="editable-input ml-1"
                     value={data.jenis}
@@ -256,16 +275,16 @@ export default function LayoutCard({
                   />
                 </td>
               </tr>
-              <tr>
-                <td className="text-gray-400 uppercase text-[10px]">Ukuran</td>
+              <tr className="align-top">
+                <td className="text-gray-400 uppercase text-[10px] pt-1">
+                  Ukuran
+                </td>
                 <td>
-                  :{" "}
+                  <span className="align-top">:</span>{" "}
                   <BufferedInput
                     className="editable-input"
                     value={data.ukuran}
-                    onCommit={(val) =>
-                      onUpdate(data.id, "ukuran", val)
-                    }
+                    onCommit={(val) => onUpdate(data.id, "ukuran", val)}
                   />
                 </td>
               </tr>
@@ -274,27 +293,24 @@ export default function LayoutCard({
                   Lokasi
                 </td>
                 <td>
-                  :{" "}
-                  <BufferedInput
-                    className="editable-input"
+                  <span className="align-top">:</span>{" "}
+                  <BufferedTextArea
+                    className="editable-input w-2/3"
                     value={data.lokasi}
-                    onCommit={(val) =>
-                      onUpdate(data.id, "lokasi", val)
-                    }
+                    onCommit={(val) => onUpdate(data.id, "lokasi", val)}
                   />
                 </td>
               </tr>
-              <tr>
-                <td className="text-gray-400 uppercase text-[10px]">
-                  Keterangan -
+              <tr className="align-top">
+                <td className="text-gray-400 uppercase text-[10px] pt-1">
+                  Keterangan
                 </td>
                 <td>
+                  <span className="align-top">:</span>{" "}
                   <BufferedTextArea
-                    className="editable-input w-full"
+                    className="editable-input w-2/3"
                     value={data.keterangan}
-                    onCommit={(val) =>
-                      onUpdate(data.id, "keterangan", val)
-                    }
+                    onCommit={(val) => onUpdate(data.id, "keterangan", val)}
                   />
                 </td>
               </tr>
