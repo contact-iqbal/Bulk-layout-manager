@@ -6,6 +6,7 @@ import UploadPanel from "@/components/UploadPanel";
 import SettingsPanel from "@/components/SettingsPanel";
 import MapsPanel from "@/components/MapsPanel";
 import StoragePanel from "@/components/StoragePanel";
+import ObjectsPanel from "@/components/ObjectsPanel";
 import LayoutCard from "@/components/LayoutCard";
 import {
   saveCardToDB,
@@ -53,7 +54,7 @@ export default function LayoutGenerator({
   const [activeLeftPanel, setActiveLeftPanel] = useState<
     "upload" | "settings" | "storage" | null
   >("upload");
-  const [isMapsOpen, setIsMapsOpen] = useState(false);
+  const [rightPanels, setRightPanels] = useState<("objects" | "maps")[]>([]);
   const [hasLoaded, setHasLoaded] = useState(false);
   const contentRef = useRef<HTMLDivElement>(null);
   const [isExporting, setIsExporting] = useState(false);
@@ -76,6 +77,19 @@ export default function LayoutGenerator({
   const onSettingsChangeRef = useRef(onSettingsChange);
   const onHistoryChangeRef = useRef(onHistoryChange);
   const onPageStatusChangeRef = useRef(onPageStatusChange);
+
+  const toggleRightPanel = (panel: "objects" | "maps") => {
+    setRightPanels((prev) => {
+      if (prev.includes(panel)) {
+        return prev.filter((p) => p !== panel);
+      }
+      if (prev.length >= 2) {
+        // Remove the first one (FIFO) to keep max 2
+        return [...prev.slice(1), panel];
+      }
+      return [...prev, panel];
+    });
+  };
 
   useEffect(() => {
     onSettingsChangeRef.current = onSettingsChange;
@@ -918,6 +932,16 @@ export default function LayoutGenerator({
     setCards(newCards, "Move Card Down");
   };
 
+  const updateCardField = (id: string, key: keyof CardData, value: string) => {
+    const updatedCards = cards.map((c) => {
+      if (c.id === id) {
+        return { ...c, [key]: value };
+      }
+      return c;
+    });
+    setCards(updatedCards, `Update ${key}`);
+  };
+
   // Update Settings Wrapper
   const updateSetting = (key: keyof typeof settings, value: string) => {
     setSettings((prev) => ({ ...prev, [key]: value }));
@@ -1209,8 +1233,8 @@ export default function LayoutGenerator({
       <MiniSidebar
         activeLeftPanel={activeLeftPanel}
         setActiveLeftPanel={setActiveLeftPanel}
-        isMapsOpen={isMapsOpen}
-        toggleMaps={() => setIsMapsOpen(!isMapsOpen)}
+        rightPanels={rightPanels}
+        toggleRightPanel={toggleRightPanel}
         onPrint={handleDownloadPDF}
         isExporting={isExporting}
       />
@@ -1347,9 +1371,30 @@ export default function LayoutGenerator({
         </div>
       </div>
 
-      {isMapsOpen && (
-        <div className="no-print w-[350px] bg-white border-l border-gray-200 p-6 z-50 shrink-0 h-full overflow-y-auto">
-          <MapsPanel tabId={tabId} />
+      {rightPanels.length > 0 && (
+        <div className="no-print w-[350px] bg-white border-l border-gray-200 z-50 shrink-0 h-full flex flex-col">
+          {rightPanels.map((panel, index) => (
+            <div
+              key={panel}
+              className={`flex-1 overflow-y-auto ${
+                index < rightPanels.length - 1 ? "border-b border-gray-200" : ""
+              }`}
+            >
+              {panel === "maps" && (
+                <div className="p-6 h-full">
+                  <MapsPanel tabId={tabId} />
+                </div>
+              )}
+              {panel === "objects" && (
+                <div className="p-4 h-full">
+                  <ObjectsPanel 
+                    cards={cards} 
+                    onUpdateCard={updateCardField}
+                  />
+                </div>
+              )}
+            </div>
+          ))}
         </div>
       )}
     </div>

@@ -1,6 +1,7 @@
 export interface CardData {
   id: string;
   tabId?: string; // Optional for backward compatibility, but should be used
+  name?: string; // Custom name for the card
   imgSrc: string;
   coords: string;
   jenis: string;

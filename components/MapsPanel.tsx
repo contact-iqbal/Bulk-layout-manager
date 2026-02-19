@@ -53,7 +53,10 @@ const LeafletMap = dynamic(
       function ChangeView({ center }: { center: [number, number] }) {
         const map = useMap();
         useEffect(() => {
-          map.setView(center, map.getZoom());
+          if (center[0] && center[1]) {
+            map.setView(center, map.getZoom(), { animate: true });
+            map.invalidateSize(); // Force map to redraw tiles
+          }
         }, [center, map]);
         return null;
       }
@@ -64,6 +67,8 @@ const LeafletMap = dynamic(
           zoom={13}
           style={{ height: "100%", width: "100%" }}
           scrollWheelZoom={true}
+          // Force re-render when coordinates change drastically or on first load
+          key={`${lat}-${lng}`} 
         >
           <TileLayer
             attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'

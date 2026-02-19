@@ -3,12 +3,13 @@
 import Image from "next/image";
 
 type LeftPanelMode = "upload" | "settings" | "storage" | null;
+type RightPanelMode = "objects" | "maps";
 
 interface SidebarProps {
   activeLeftPanel: LeftPanelMode;
   setActiveLeftPanel: (mode: LeftPanelMode) => void;
-  isMapsOpen: boolean;
-  toggleMaps: () => void;
+  rightPanels: RightPanelMode[];
+  toggleRightPanel: (mode: RightPanelMode) => void;
   onPrint: () => void;
   isExporting?: boolean;
   children?: React.ReactNode;
@@ -17,8 +18,8 @@ interface SidebarProps {
 export function MiniSidebar({
   activeLeftPanel,
   setActiveLeftPanel,
-  isMapsOpen,
-  toggleMaps,
+  rightPanels,
+  toggleRightPanel,
   onPrint,
   isExporting,
 }: SidebarProps) {
@@ -47,6 +48,27 @@ export function MiniSidebar({
             strokeLinejoin="round"
             strokeWidth="2"
             d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"
+          ></path>
+        </svg>
+      </button>
+
+      <button
+        id="btn-objects"
+        onClick={() => toggleRightPanel("objects")}
+        className={`p-3 mb-4 rounded-xl transition ${rightPanels.includes("objects") ? "text-orange-600 bg-orange-50" : "text-gray-400 hover:text-orange-600"}`}
+        title="Objects"
+      >
+        <svg
+          className="w-6 h-6"
+          fill="none"
+          stroke="currentColor"
+          viewBox="0 0 24 24"
+        >
+          <path
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            strokeWidth="2"
+            d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"
           ></path>
         </svg>
       </button>
@@ -99,8 +121,8 @@ export function MiniSidebar({
 
       <button
         id="btn-maps"
-        onClick={toggleMaps}
-        className={`p-3 mb-4 rounded-xl transition ${isMapsOpen ? "text-orange-600 bg-orange-50" : "text-gray-400 hover:text-orange-600"}`}
+        onClick={() => toggleRightPanel("maps")}
+        className={`p-3 mb-4 rounded-xl transition ${rightPanels.includes("maps") ? "text-orange-600 bg-orange-50" : "text-gray-400 hover:text-orange-600"}`}
         title="Maps"
       >
         <svg
