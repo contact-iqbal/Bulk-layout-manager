@@ -212,7 +212,21 @@ export default function ObjectsPanel({ cards, onCardSelect, onUpdateCard }: Obje
                         </div>
                         <div className="flex-1 min-w-0">
                           <p className="text-xs font-medium text-gray-700 truncate">Image</p>
-                          <div className="h-8 w-8 relative mt-0.5 border border-gray-300 bg-gray-50">
+                          <div 
+                             className="h-8 w-8 relative mt-0.5 border border-gray-300 bg-gray-50 cursor-pointer hover:border-orange-500 transition-colors"
+                             onClick={(e) => e.stopPropagation()}
+                             onDoubleClick={(e) => {
+                               e.stopPropagation();
+                               window.dispatchEvent(new CustomEvent('open-image-tab', {
+                                 detail: {
+                                   id: card.id,
+                                   src: card.imgSrc,
+                                   name: card.name || `Card ${index + 1}`
+                                 }
+                               }));
+                             }}
+                             title="Double click to open in new tab"
+                          >
                              <Image 
                                 src={card.imgSrc} 
                                 alt="Thumbnail" 

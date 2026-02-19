@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import Navbar from "@/components/Navbar";
 import TabSystem from "@/components/TabSystem";
 import LayoutGenerator from "@/components/LayoutGenerator";
+import ImageViewer from "@/components/ImageViewer";
 import WelcomeModal from "@/components/WelcomeModal";
 import DownloadProgress from "@/components/DownloadProgress";
 import BottomNavbar from "@/components/BottomNavbar";
@@ -13,7 +14,7 @@ import Swal from "sweetalert2";
 export default function Home() {
   // Tab State
   const [tabs, setTabs] = useState<
-    { id: string; title: string; content: React.ReactNode; canClose: boolean; initialData?: any }[]
+    { id: string; title: string; type?: string; content: React.ReactNode; canClose: boolean; initialData?: any }[]
   >([]);
   const [activeTabId, setActiveTabId] = useState("");
   const [isLoaded, setIsLoaded] = useState(false);
@@ -38,12 +39,19 @@ export default function Home() {
       handleAddTab(backupData);
     };
 
+    const handleOpenImageTab = (e: CustomEvent) => {
+      const { src, name } = e.detail;
+      handleNewTab("image", name, { src, name });
+    };
+
     window.addEventListener("zoom-update", handleZoomUpdate as EventListener);
     window.addEventListener("import-backup", handleImportBackup as EventListener);
+    window.addEventListener("open-image-tab", handleOpenImageTab as EventListener);
     
     return () => {
       window.removeEventListener("zoom-update", handleZoomUpdate as EventListener);
       window.removeEventListener("import-backup", handleImportBackup as EventListener);
+      window.removeEventListener("open-image-tab", handleOpenImageTab as EventListener);
     };
   }, [tabs]);
 
@@ -163,6 +171,7 @@ export default function Home() {
       content: null,
       canClose: true,
       initialData: initialData,
+      type: type, // Store type
     };
     setTabs((prev) => [...prev, newTab]);
     setActiveTabId(newId);
@@ -171,7 +180,13 @@ export default function Home() {
   // Render content dynamically based on state
   const renderedTabs = tabs.map(t => ({
     ...t,
-    content: (
+    content: t.type === "image" ? (
+      <ImageViewer 
+        src={t.initialData?.src} 
+        name={t.initialData?.name} 
+        tabId={t.id}
+      />
+    ) : (
       <LayoutGenerator
         tabId={t.id}
         tabTitle={t.title}
