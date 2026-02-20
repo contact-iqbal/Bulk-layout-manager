@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
+import { createPortal } from "react-dom";
 import dynamic from "next/dynamic";
 import "leaflet/dist/leaflet.css";
 
@@ -97,13 +98,16 @@ export default function MapsPanel({ tabId, onSelectLocation }: MapsPanelProps) {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [coords, setCoords] = useState<{ lat: number; lng: number }>({
-    lat: -6.9147, // Default Bandung
-    lng: 107.6098,
+    lat: -7.4478, // Default Sidoarjo
+    lng: 112.7183,
   });
+  const [isExpanded, setIsExpanded] = useState(false);
   const [address, setAddress] = useState("");
   const [copySuccess, setCopySuccess] = useState(false);
+  const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
+    setMounted(true);
     const timer = setTimeout(() => {
       setIsInitializing(false);
     }, 300);
@@ -225,7 +229,55 @@ export default function MapsPanel({ tabId, onSelectLocation }: MapsPanelProps) {
   }
 
   return (
-    <div className="flex flex-col h-full relative">
+    <div className="flex flex-col h-full relative group/panel">
+      {/* Expand Button */}
+      <button
+        onClick={() => setIsExpanded(true)}
+        className="absolute -left-2 top-24 z-10 bg-white p-2 rounded-r-lg shadow-md border border-gray-200 border-l-0 hover:bg-orange-50 text-orange-500 transition-all hover:pl-3 opacity-0 group-hover/panel:opacity-100 hover:!opacity-100"
+        title="Buka 360 Viewer"
+      >
+        <i className="fa-solid fa-street-view"></i>
+      </button>
+
+      {/* 360 Viewer Overlay - Portal to workspace-container (Area Kerja User - No Scroll Interaction) */}
+      {isExpanded && mounted && typeof document !== "undefined" && document.getElementById("workspace-container") && createPortal(
+        <div className="absolute inset-0 z-[100] bg-black/90 flex flex-col animate-in fade-in duration-300">
+          {/* Header Overlay */}
+          <div className="absolute top-4 right-4 z-[110] flex items-center gap-2">
+            <div className="bg-black/60 text-white px-3 py-1.5 rounded-full backdrop-blur-md text-xs font-medium border border-white/10 shadow-lg flex items-center gap-2 pointer-events-none">
+              <i className="fa-solid fa-location-dot text-orange-400"></i>
+              <span className="font-mono">{coords.lat.toFixed(5)}, {coords.lng.toFixed(5)}</span>
+            </div>
+            <button
+              onClick={() => setIsExpanded(false)}
+              className="bg-white/10 hover:bg-white/20 text-white w-9 h-9 rounded-full flex items-center justify-center transition-all backdrop-blur-md border border-white/10 shadow-lg"
+              title="Tutup Viewer"
+            >
+              <i className="fa-solid fa-xmark text-lg"></i>
+            </button>
+          </div>
+
+          <div className="flex-1 w-full h-full relative overflow-hidden rounded-none">
+            {/* Free Google Maps Embed Hack */}
+            <iframe
+              width="100%"
+              height="100%"
+              style={{ border: 0 }}
+              loading="lazy"
+              allowFullScreen
+              referrerPolicy="no-referrer-when-downgrade"
+              src={`https://maps.google.com/maps?q=${coords.lat},${coords.lng}&layer=c&cbll=${coords.lat},${coords.lng}&cbp=12,0,0,0,0&output=svembed`}
+            ></iframe>
+            
+            {/* Fallback Message */}
+            <div className="absolute bottom-4 left-1/2 -translate-x-1/2 text-[10px] text-white/50 text-center pointer-events-none">
+              Mode Gratis (Tanpa API Key) &bull; Google Maps Street View
+            </div>
+          </div>
+        </div>,
+        document.getElementById("workspace-container")!
+      )}
+
       <div className="flex items-center justify-between mb-4">
         <h3 className="font-black text-gray-800 uppercase text-xs tracking-widest">
           Koordinat Lokasi

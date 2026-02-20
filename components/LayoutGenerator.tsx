@@ -981,6 +981,30 @@ export default function LayoutGenerator({
     }
   };
 
+  const handleFileDropChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files.length > 0) {
+      const files = e.target.files;
+      
+      // Check for JSON backup
+      if (files.length === 1 && files[0].type === "application/json") {
+         const file = files[0];
+         try {
+           const text = await file.text();
+           const json = JSON.parse(text);
+           if (json.cards || json.history) {
+              window.dispatchEvent(new CustomEvent("import-backup", { detail: json }));
+           }
+         } catch (error) {
+            console.error("Import error:", error);
+         }
+      } else {
+        // Normal image upload
+        handleUpload(files);
+      }
+      e.target.value = ""; // Reset
+    }
+  };
+
   // Card Operations
   const updateCard = async (id: string, key: keyof CardData, value: string) => {
     const updatedCards = cards.map((card) => {
@@ -1386,7 +1410,7 @@ export default function LayoutGenerator({
           </div>
         )}
 
-        <div className="flex-1 flex flex-row overflow-hidden relative h-full">
+        <div id="workspace-container" className="flex-1 flex flex-row overflow-hidden relative h-full">
           {showRulers && (
             <div className="w-[20px] shrink-0 h-full z-20 bg-gray-100 border-r border-gray-300 relative overflow-hidden">
               <Ruler
@@ -1471,6 +1495,33 @@ export default function LayoutGenerator({
                   />
                 </div>
               ))}
+
+              {/* Add New Card Dropzone */}
+              <div 
+                className="w-full mt-4 mb-20 flex flex-col items-center justify-center p-8 border-2 border-dashed border-gray-300 rounded-xl bg-gray-50 hover:bg-orange-50 hover:border-orange-500 transition-colors cursor-pointer group relative no-print"
+                data-html2canvas-ignore="true"
+              >
+                <input
+                  type="file"
+                  multiple
+                  accept="image/*, application/json"
+                  onChange={handleFileDropChange}
+                  className="absolute inset-0 opacity-0 cursor-pointer w-full h-full z-10"
+                />
+                <div className="flex flex-col items-center space-y-3 pointer-events-none">
+                   <div className="w-12 h-12 rounded-full bg-white shadow-sm flex items-center justify-center border border-gray-100 group-hover:border-orange-200 group-hover:shadow-md transition-all">
+                      <i className="fa-solid fa-cloud-arrow-up text-2xl text-gray-400 group-hover:text-orange-500 transition-colors"></i>
+                   </div>
+                   <div className="text-center">
+                     <p className="text-sm font-semibold text-gray-600 group-hover:text-orange-600 transition-colors">
+                       Klik atau Drag & Drop file di sini
+                     </p>
+                     <p className="text-xs text-gray-400 mt-1">
+                       Upload gambar baru
+                     </p>
+                   </div>
+                </div>
+              </div>
             </div>
           </div>
         )}
