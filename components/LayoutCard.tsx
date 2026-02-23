@@ -161,7 +161,7 @@ export default function LayoutCard({
   }, []);
 
   return (
-    <div className="print-page bg-white relative group-card group px-12 py-10 flex flex-col">
+    <div className="print-page bg-white relative group-card group px-12 pt-6 pb-10 flex flex-col">
       {/* Dropdown Menu */}
       <div
         ref={menuRef}
@@ -240,7 +240,7 @@ export default function LayoutCard({
         )}
       </div>
 
-      <div className="flex justify-between items-start mb-8">
+      <div className="flex justify-between items-start mb-2">
         <div className="relative group/logo">
           <img
             src={data.customLogo || customLogo || "/assets/logo.png"}
@@ -281,7 +281,7 @@ export default function LayoutCard({
         </div>
       </div>
 
-      <div className="print-media-row flex gap-8 mb-10">
+      <div className="print-media-row flex gap-8 mb-4">
         <div className="print-img-col w-2/3 aspect-video relative">
           <img
             src={data.imgSrc}
@@ -320,7 +320,7 @@ export default function LayoutCard({
         </div>
       </div>
 
-      <div className="print-info-row flex gap-4 border-t-3 border-[#F36F21] pt-6 items-stretch">
+      <div className="print-info-row flex gap-4 border-t-3 border-[#F36F21] pt-4 items-stretch">
         <div className="flex-grow">
           <div className="print-exact bg-[#F36F21] text-white px-4 py-1 inline-block font-black uppercase text-xs mb-4">
             Informasi Media

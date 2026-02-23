@@ -1,6 +1,4 @@
-"use client";
-
-import { useEffect, useState } from "react";
+import dynamic from "next/dynamic";
 
 interface MapPreviewProps {
   coords: string; // "lat, lng" atau "lat,lng"
@@ -8,34 +6,16 @@ interface MapPreviewProps {
 }
 
 // Komponen inner diload dinamis untuk menghindari SSR issue
-let LeafletMapInner: React.ComponentType<{
-  lat: number;
-  lng: number;
-  zoom?: number;
-}> | null = null;
+const LeafletMapInner = dynamic(() => import("./LeafletMapInner"), {
+  ssr: false,
+  loading: () => (
+    <div className="w-full h-full flex items-center justify-center bg-gray-100 text-gray-400 text-xs">
+      Memuat peta...
+    </div>
+  ),
+});
 
 export default function MapPreview({ coords, className }: MapPreviewProps) {
-  const [MapComponent, setMapComponent] = useState<React.ComponentType<{
-    lat: number;
-    lng: number;
-    zoom?: number;
-  }> | null>(null);
-  const [isLoaded, setIsLoaded] = useState(false);
-
-  useEffect(() => {
-    // Load Leaflet hanya di client side
-    if (LeafletMapInner) {
-      setMapComponent(() => LeafletMapInner);
-      setIsLoaded(true);
-      return;
-    }
-    import("./LeafletMapInner").then((mod) => {
-      LeafletMapInner = mod.default;
-      setMapComponent(() => mod.default);
-      setIsLoaded(true);
-    });
-  }, []);
-
   // Parse koordinat
   const coordStr = coords.replace(/\s/g, "");
   const parts = coordStr.split(",");
@@ -53,22 +33,12 @@ export default function MapPreview({ coords, className }: MapPreviewProps) {
     );
   }
 
-  if (!isLoaded || !MapComponent) {
-    return (
-      <div
-        className={`w-full h-full flex items-center justify-center bg-gray-100 text-gray-400 text-xs ${className ?? ""}`}
-      >
-        Memuat peta...
-      </div>
-    );
-  }
-
   return (
     <div
       className={`w-full h-full relative ${className ?? ""}`}
       style={{ minHeight: "160px" }}
     >
-      <MapComponent lat={lat} lng={lng} />
+      <LeafletMapInner lat={lat} lng={lng} />
     </div>
   );
 }

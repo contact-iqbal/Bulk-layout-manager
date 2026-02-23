@@ -172,7 +172,7 @@
 @media print {
   @page {
     margin: 1cm;
-    size: A4 portrait;
+    size: A4 landscape;
   }
 
   html,
@@ -209,22 +209,42 @@
     display: none !important;
   }
 
+  /* Print page: compact, tanpa min-height berlebihan */
+  .print-page {
+    display: flex !important;
+    flex-direction: column !important;
+    min-height: unset !important;
+    height: auto !important;
+    overflow: hidden !important;
+    padding: 16px 32px !important;
+    gap: 0 !important;
+    page-break-after: always !important;
+    break-after: page !important;
+  }
+
+  /* Header logo + tagline: kurangi margin bawah */
+  .print-page>div:first-of-type {
+    margin-bottom: 2px !important;
+  }
+
   /* -- Print media row: fix height agar tidak overflow -- */
   .print-media-row {
     display: flex !important;
     flex-wrap: nowrap !important;
-    height: 200px !important;
+    height: 180px !important;
     min-height: unset !important;
-    max-height: 200px !important;
+    max-height: 180px !important;
     overflow: hidden !important;
-    margin-bottom: 16px !important;
+    margin-bottom: 10px !important;
+    flex-shrink: 0 !important;
   }
 
   .print-img-col {
     width: 66.666% !important;
-    height: 200px !important;
+    height: 180px !important;
     position: relative !important;
     aspect-ratio: unset !important;
+    flex-shrink: 0 !important;
   }
 
   .print-img-col img {
@@ -236,9 +256,10 @@
 
   .print-map-col {
     width: 33.333% !important;
-    height: 200px !important;
+    height: 180px !important;
     display: flex !important;
     flex-direction: column !important;
+    flex-shrink: 0 !important;
   }
 
   /* Sembunyikan elemen yang tidak diperlukan saat print */
@@ -250,11 +271,15 @@
   .leaflet-map-container {
     display: block !important;
     overflow: hidden !important;
+    width: 100% !important;
+    height: 100% !important;
   }
 
   .leaflet-map-container .leaflet-container {
     display: block !important;
     background: #f0ece6 !important;
+    width: 100% !important;
+    height: 100% !important;
   }
 
   /* Pastikan tile images di Leaflet tampil saat print */
@@ -276,27 +301,20 @@
     visibility: visible !important;
   }
 
-  /* Print page: flex column agar elemen-elemen tersusun vertikal */
-  .print-page {
-    display: flex !important;
-    flex-direction: column !important;
-    overflow: hidden !important;
-  }
-
-  /* Section bawah: Informasi Media + Kontak Kami - pertahankan flex row */
+  /* Section bawah: Informasi Media + Kontak Kami */
   .print-info-row {
     display: flex !important;
     flex-direction: row !important;
     align-items: stretch !important;
     gap: 16px !important;
-    margin-top: 12px !important;
     flex-shrink: 0 !important;
+    margin-top: 0 !important;
+    padding-top: 12px !important;
   }
 
-  .print-info-row > * {
+  .print-info-row>* {
     display: block !important;
   }
-
 
   * {
     -webkit-print-color-adjust: exact !important;
