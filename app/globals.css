@@ -1,4 +1,4 @@
-@import "tailwindcss";
+﻿@import "tailwindcss";
 @plugin "tailwindcss-animate";
 @custom-variant dark (&:where(.dark, .dark *));
 
@@ -90,23 +90,57 @@
   --animate-accordion-up: accordion-up 0.2s ease-out;
 
   @keyframes accordion-down {
-    from { height: 0; }
-    to { height: var(--radix-accordion-content-height); }
+    from {
+      height: 0;
+    }
+
+    to {
+      height: var(--radix-accordion-content-height);
+    }
   }
+
   @keyframes accordion-up {
-    from { height: var(--radix-accordion-content-height); }
-    to { height: 0; }
+    from {
+      height: var(--radix-accordion-content-height);
+    }
+
+    to {
+      height: 0;
+    }
   }
 }
 
 /* -------------------- Scrollbar -------------------- */
-::-webkit-scrollbar { width: 6px; height: 6px; }
-::-webkit-scrollbar-track { background: transparent; }
-::-webkit-scrollbar-thumb { background: rgba(0,0,0,0.1); border-radius: 10px; transition: background 0.3s; }
-::-webkit-scrollbar-thumb:hover { background: rgba(0,0,0,0.25); }
-.thin-scrollbar::-webkit-scrollbar { width: 4px; }
-.thin-scrollbar::-webkit-scrollbar-thumb { background: #e2e8f0; }
-.thin-scrollbar::-webkit-scrollbar-thumb:hover { background: #cbd5e1; }
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(0, 0, 0, 0.1);
+  border-radius: 10px;
+  transition: background 0.3s;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(0, 0, 0, 0.25);
+}
+
+.thin-scrollbar::-webkit-scrollbar {
+  width: 4px;
+}
+
+.thin-scrollbar::-webkit-scrollbar-thumb {
+  background: #e2e8f0;
+}
+
+.thin-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: #cbd5e1;
+}
 
 /* -------------------- Fonts -------------------- */
 .genos {
@@ -120,8 +154,10 @@
 .layout-card-wrapper,
 .print-page {
   width: 100%;
-  max-width: 297mm;     /* A4 width */
-  min-height: 210mm;    /* A4 height */
+  max-width: 297mm;
+  /* A4 width */
+  min-height: 210mm;
+  /* A4 height */
   overflow: visible;
   box-sizing: border-box;
   break-inside: avoid;
@@ -134,8 +170,17 @@
 
 /* -------------------- Print Media -------------------- */
 @media print {
-  @page { margin: 1cm; size: A4 portrait; }
-  html, body, #__next, main, #main-content, #cards-container {
+  @page {
+    margin: 1cm;
+    size: A4 portrait;
+  }
+
+  html,
+  body,
+  #__next,
+  main,
+  #main-content,
+  #cards-container {
     width: 100% !important;
     height: auto !important;
     min-height: initial !important;
@@ -147,12 +192,115 @@
     position: static !important;
   }
 
-  body { background: white !important; -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
+  body {
+    background: white !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
 
-  .no-print, .Navbar, .Sidebar_mini, .Sidebar_main, button, nav, header, aside {
+  .no-print,
+  .Navbar,
+  .Sidebar_mini,
+  .Sidebar_main,
+  button,
+  nav,
+  header,
+  aside {
     display: none !important;
   }
 
-  .print-page > * { display: block !important; }
-  * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; color-adjust: exact !important; }
+  /* -- Print media row: fix height agar tidak overflow -- */
+  .print-media-row {
+    display: flex !important;
+    flex-wrap: nowrap !important;
+    height: 200px !important;
+    min-height: unset !important;
+    max-height: 200px !important;
+    overflow: hidden !important;
+    margin-bottom: 16px !important;
+  }
+
+  .print-img-col {
+    width: 66.666% !important;
+    height: 200px !important;
+    position: relative !important;
+    aspect-ratio: unset !important;
+  }
+
+  .print-img-col img {
+    width: 100% !important;
+    height: 100% !important;
+    object-fit: cover !important;
+    display: block !important;
+  }
+
+  .print-map-col {
+    width: 33.333% !important;
+    height: 200px !important;
+    display: flex !important;
+    flex-direction: column !important;
+  }
+
+  /* Sembunyikan elemen yang tidak diperlukan saat print */
+  .no-print {
+    display: none !important;
+  }
+
+  /* Leaflet map: pastikan tiles img tampil di print */
+  .leaflet-map-container {
+    display: block !important;
+    overflow: hidden !important;
+  }
+
+  .leaflet-map-container .leaflet-container {
+    display: block !important;
+    background: #f0ece6 !important;
+  }
+
+  /* Pastikan tile images di Leaflet tampil saat print */
+  .leaflet-tile,
+  .leaflet-tile-container img,
+  .leaflet-layer img {
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+    opacity: 1 !important;
+    visibility: visible !important;
+    display: block !important;
+  }
+
+  /* Marker Leaflet */
+  .leaflet-marker-pane img,
+  .leaflet-shadow-pane img {
+    display: block !important;
+    opacity: 1 !important;
+    visibility: visible !important;
+  }
+
+  /* Print page: flex column agar elemen-elemen tersusun vertikal */
+  .print-page {
+    display: flex !important;
+    flex-direction: column !important;
+    overflow: hidden !important;
+  }
+
+  /* Section bawah: Informasi Media + Kontak Kami - pertahankan flex row */
+  .print-info-row {
+    display: flex !important;
+    flex-direction: row !important;
+    align-items: stretch !important;
+    gap: 16px !important;
+    margin-top: 12px !important;
+    flex-shrink: 0 !important;
+  }
+
+  .print-info-row > * {
+    display: block !important;
+  }
+
+
+  * {
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+    color-adjust: exact !important;
+  }
 }

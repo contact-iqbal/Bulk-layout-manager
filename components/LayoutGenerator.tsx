@@ -429,6 +429,34 @@ export default function LayoutGenerator({
             ]);
         }
 
+        // Fix object-fit: cover for images (html2canvas issue)
+        const images = cloned.querySelectorAll('img');
+        images.forEach(img => {
+            const style = window.getComputedStyle(img);
+            if (style.objectFit === 'cover') {
+                const div = document.createElement('div');
+                div.style.width = style.width || '100%';
+                div.style.height = style.height || '100%';
+                div.style.backgroundImage = `url("${img.src}")`;
+                div.style.backgroundSize = 'cover';
+                div.style.backgroundPosition = 'center';
+                div.style.borderRadius = style.borderRadius;
+                div.style.border = style.border;
+                div.style.boxShadow = style.boxShadow;
+                div.style.position = style.position;
+                div.style.top = style.top;
+                div.style.left = style.left;
+                div.style.right = style.right;
+                div.style.bottom = style.bottom;
+                div.style.zIndex = style.zIndex;
+                div.style.margin = style.margin;
+                div.style.display = style.display;
+                div.style.transform = style.transform;
+                
+                img.parentNode?.replaceChild(div, img);
+            }
+        });
+
         // Fix for "unsupported color function oklch/oklab" error in html2canvas
         // Tailwind CSS v4 uses oklch by default, which html2canvas doesn't support yet.
         // We traverse the cloned DOM and convert any oklch/oklab colors to RGB using a canvas context.
@@ -562,6 +590,12 @@ export default function LayoutGenerator({
             wrapper.style.boxSizing = "border-box";
             wrapper.style.backgroundColor = "white";
             
+            // Force fixed positioning to top-left to avoid scroll offsets
+            wrapper.style.position = "fixed";
+            wrapper.style.top = "0";
+            wrapper.style.left = "0";
+            wrapper.style.zIndex = "10000";
+            
             // Ensure internal card fills
             const card = wrapper.querySelector(".layout-card") as HTMLElement;
             if (card) {
@@ -589,7 +623,11 @@ export default function LayoutGenerator({
                 width: pixelWidth,
                 height: pixelHeight,
                 windowWidth: pixelWidth,
-                windowHeight: pixelHeight
+                windowHeight: pixelHeight,
+                scrollX: 0,
+                scrollY: 0,
+                x: 0,
+                y: 0
             } as any);
 
             const imgData = canvas.toDataURL("image/jpeg", 0.95);
@@ -700,6 +738,9 @@ export default function LayoutGenerator({
                 div.style.right = style.right;
                 div.style.bottom = style.bottom;
                 div.style.zIndex = style.zIndex;
+                div.style.margin = style.margin;
+                div.style.display = style.display;
+                div.style.transform = style.transform;
                 
                 img.parentNode?.replaceChild(div, img);
             }
@@ -855,6 +896,12 @@ export default function LayoutGenerator({
              wrapper.style.boxSizing = "border-box";
              wrapper.style.backgroundColor = "white"; 
              
+             // Force fixed positioning to top-left to avoid scroll offsets
+             wrapper.style.position = "fixed";
+             wrapper.style.top = "0";
+             wrapper.style.left = "0";
+             wrapper.style.zIndex = "10000";
+             
             const card = wrapper.querySelector(".layout-card") as HTMLElement;
             if (card) {
                 card.style.width = "100%";
@@ -880,7 +927,11 @@ export default function LayoutGenerator({
                 width: pixelWidth,
                 height: pixelHeight,
                 windowWidth: pixelWidth,
-                windowHeight: pixelHeight
+                windowHeight: pixelHeight,
+                scrollX: 0,
+                scrollY: 0,
+                x: 0,
+                y: 0
             } as any);
 
             const mimeType = format === 'jpg' ? 'image/jpeg' : 'image/png';

@@ -4,6 +4,7 @@ import { CardData } from "@/app/lib/db";
 import Swal from "sweetalert2";
 import { useState, useRef, useEffect } from "react";
 import LogoCropperModal from "./LogoCropperModal";
+import MapPreview from "./MapPreview";
 
 interface Settings {
   addr1: string;
@@ -158,9 +159,6 @@ export default function LayoutCard({
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
-  // Embed URL logic
-  // Safe embed with query
-  const mapUrl = `https://www.google.com/maps?q=${data.coords}&z=16&output=embed`;
 
   return (
     <div className="print-page bg-white relative group-card group px-12 py-10 flex flex-col">
@@ -249,31 +247,31 @@ export default function LayoutCard({
             className="w-40 h-24 object-contain rounded transition-all group-hover/logo:brightness-90"
             alt="Logo"
           />
-          <div 
-             className="no-print absolute inset-0 flex items-center justify-center opacity-0 group-hover/logo:opacity-100 transition-opacity bg-black/30 rounded cursor-pointer"
-             onClick={() => fileInputRef.current?.click()}
-             title="Ganti Logo Kartu Ini"
+          <div
+            className="no-print absolute inset-0 flex items-center justify-center opacity-0 group-hover/logo:opacity-100 transition-opacity bg-black/30 rounded cursor-pointer"
+            onClick={() => fileInputRef.current?.click()}
+            title="Ganti Logo Kartu Ini"
           >
-             <i className="fa-solid fa-camera text-white text-2xl drop-shadow-lg"></i>
+            <i className="fa-solid fa-camera text-white text-2xl drop-shadow-lg"></i>
           </div>
-          <input 
-             type="file" 
-             ref={fileInputRef}
-             onChange={handleLogoFileChange}
-             accept="image/*"
-             className="hidden" 
+          <input
+            type="file"
+            ref={fileInputRef}
+            onChange={handleLogoFileChange}
+            accept="image/*"
+            className="hidden"
           />
           {data.customLogo && (
-             <button 
-               className="no-print absolute -top-2 -right-2 w-6 h-6 bg-red-500 hover:bg-red-600 text-white rounded-full flex items-center justify-center opacity-0 group-hover/logo:opacity-100 transition-opacity shadow-md z-10"
-               onClick={(e) => {
-                 e.stopPropagation();
-                 onUpdate(data.id, "customLogo", "");
-               }}
-               title="Hapus Logo Custom"
-             >
-               <i className="fa-solid fa-times text-xs"></i>
-             </button>
+            <button
+              className="no-print absolute -top-2 -right-2 w-6 h-6 bg-red-500 hover:bg-red-600 text-white rounded-full flex items-center justify-center opacity-0 group-hover/logo:opacity-100 transition-opacity shadow-md z-10"
+              onClick={(e) => {
+                e.stopPropagation();
+                onUpdate(data.id, "customLogo", "");
+              }}
+              title="Hapus Logo Custom"
+            >
+              <i className="fa-solid fa-times text-xs"></i>
+            </button>
           )}
         </div>
         <div className="text-right genos uppercase text-3xl leading-none">
@@ -283,9 +281,8 @@ export default function LayoutCard({
         </div>
       </div>
 
-      <div className="flex gap-8 mb-10 flex-1 min-h-0">
-        <div className="w-2/3 aspect-video relative">
-          {/* Using standard img tag for blob/dataUrl usually better for local previews than next/image if optimization not needed */}
+      <div className="print-media-row flex gap-8 mb-10">
+        <div className="print-img-col w-2/3 aspect-video relative">
           <img
             src={data.imgSrc}
             className="w-full h-full object-cover rounded border border-gray-100 shadow-sm cursor-pointer hover:opacity-90 transition-opacity"
@@ -301,18 +298,18 @@ export default function LayoutCard({
                     cardId: data.id,
                     sourceTabId: data.tabId,
                   },
-                })
+                }),
               );
             }}
           />
         </div>
-        <div className="w-1/3 flex flex-col">
-          <div className="flex-grow border border-gray-100 rounded overflow-hidden relative">
-            <iframe
-              className="w-full h-full border-0 absolute inset-0"
-              src={mapUrl}
-              loading="lazy"
-            ></iframe>
+        <div className="print-map-col w-1/3 flex flex-col">
+          {/* Leaflet map: tampil di screen DAN print/PDF */}
+          <div
+            className="flex-grow border border-gray-100 rounded overflow-hidden"
+            style={{ minHeight: "160px" }}
+          >
+            <MapPreview coords={data.coords} className="rounded" />
           </div>
           <BufferedInput
             type="text"
@@ -323,7 +320,7 @@ export default function LayoutCard({
         </div>
       </div>
 
-      <div className="flex gap-4 border-t-3 border-[#F36F21] pt-6 items-stretch">
+      <div className="print-info-row flex gap-4 border-t-3 border-[#F36F21] pt-6 items-stretch">
         <div className="flex-grow">
           <div className="print-exact bg-[#F36F21] text-white px-4 py-1 inline-block font-black uppercase text-xs mb-4">
             Informasi Media
