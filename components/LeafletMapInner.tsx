@@ -52,8 +52,10 @@ export default function LeafletMapInner({
       scrollWheelZoom: false,
     });
 
-    L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
-      maxZoom: 19,
+    // Switch to Google Maps tiles for better detail in preview
+    L.tileLayer("https://{s}.google.com/vt/lyrs=m&x={x}&y={y}&z={z}", {
+      maxZoom: 20,
+      subdomains: ["mt0", "mt1", "mt2", "mt3"],
       crossOrigin: "anonymous",
     }).addTo(map);
 

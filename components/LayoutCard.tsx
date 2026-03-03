@@ -179,7 +179,7 @@ export default function LayoutCard({
         </button>
 
         {isMenuOpen && (
-          <div className="no-print absolute top-10 right-0 bg-white border border-gray-200 shadow-xl rounded-lg py-1.5 w-48 animate-in fade-in slide-in-from-top-2 duration-200 z-[60]">
+          <div className="no-print absolute top-10 right-0 bg-white border border-gray-200 shadow-xl rounded-lg py-1.5 w-48 animate-in fade-in slide-in-from-top-2 duration-200 z-[100]">
             <button
               onClick={(e) => {
                 e.stopPropagation();
@@ -303,7 +303,7 @@ export default function LayoutCard({
             }}
           />
         </div>
-        <div className="print-map-col w-1/3 flex flex-col">
+        <div className="print-map-col w-1/3 flex flex-col z-[1]">
           {/* Leaflet map: tampil di screen DAN print/PDF */}
           <div
             className="flex-grow border border-gray-100 rounded overflow-hidden"

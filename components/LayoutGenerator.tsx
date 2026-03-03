@@ -349,7 +349,7 @@ export default function LayoutGenerator({
             el.parentNode?.replaceChild(replacement, el);
         });
 
-        // Convert Map containers and iframes to static images for perfect centering in PDF
+        // Convert Map containers and iframes to high-detail Google Maps for PDF
         const mapLoadPromises: Promise<void>[] = [];
 
         // 1. Convert data-map-coords containers (from MapPreview/Leaflet)
@@ -362,49 +362,36 @@ export default function LayoutGenerator({
                 const lon = parts[1];
                 
                 if (lat && lon) {
-                    // Wrapper for positioning the custom icon
                     const wrapper = document.createElement('div');
                     wrapper.style.position = 'relative';
                     wrapper.style.width = '100%';
                     wrapper.style.height = '100%';
                     wrapper.style.overflow = 'hidden';
 
-                    // Static map image (No marker pt parameter)
-                    const img = document.createElement('img');
-                    img.crossOrigin = "anonymous";
-                    img.src = `https://static-maps.yandex.ru/1.x/?ll=${lon},${lat}&z=16&l=map&lang=en_US&size=600,450`;
+                    // Google Maps Embed (Keyless trick)
+                    const iframe = document.createElement('iframe');
+                    // output=embed is the key for high detail without API key
+                    iframe.src = `https://maps.google.com/maps?q=${lat},${lon}&z=16&output=embed&iwloc=0`;
+                    iframe.style.width = '100%';
+                    iframe.style.height = '100%';
+                    iframe.style.border = '0';
+                    iframe.style.position = 'absolute';
+                    iframe.style.inset = '0';
+                    iframe.className = 'map-iframe'; // for easier identification later
                     
-                    img.style.width = '100%';
-                    img.style.height = '100%';
-                    img.style.objectFit = 'cover';
-                    img.style.display = 'block';
-                    
-                    // Custom Icon Overlay (matching LeafletMapInner style)
+                    // Custom Icon Overlay (keeping it centered)
                     const icon = document.createElement('img');
                     icon.src = '/assets/icon_maps.png';
                     icon.style.position = 'absolute';
                     icon.style.top = '50%';
                     icon.style.left = '50%';
-                    // translate(-50%, -100%) because the anchor is at the bottom-center [16, 40]
                     icon.style.transform = 'translate(-50%, -100%)'; 
                     icon.style.width = '32px';
                     icon.style.height = '40px';
                     icon.style.zIndex = '10';
+                    icon.style.pointerEvents = 'none';
                     
-                    const loadPromise = new Promise<void>((resolve) => {
-                        let loaded = 0;
-                        const check = () => {
-                            loaded++;
-                            if (loaded === 2) resolve();
-                        };
-                        img.onload = check;
-                        img.onerror = check;
-                        icon.onload = check;
-                        icon.onerror = check;
-                    });
-                    mapLoadPromises.push(loadPromise);
-                    
-                    wrapper.appendChild(img);
+                    wrapper.appendChild(iframe);
                     wrapper.appendChild(icon);
                     
                     container.innerHTML = '';
@@ -413,10 +400,10 @@ export default function LayoutGenerator({
             }
         });
 
-        // 2. Fallback: Convert any Google Maps iframes
-        const mapIframes = cloned.querySelectorAll('iframe');
-        mapIframes.forEach(iframe => {
-            const src = iframe.src;
+        // 2. Fallback: Convert any existing iframes to the same high-detail version
+        const existingIframes = cloned.querySelectorAll('iframe:not(.map-iframe)');
+        existingIframes.forEach(iframe => {
+            const src = (iframe as HTMLIFrameElement).src;
             const match = src.match(/q=([-\d\.,]+)/);
             
             if (match && match[1]) {
@@ -424,36 +411,11 @@ export default function LayoutGenerator({
                 if (coords.length === 2) {
                     const lat = coords[0].trim();
                     const lon = coords[1].trim();
-                    const img = document.createElement('img');
-                    img.crossOrigin = "anonymous";
-                    img.src = `https://static-maps.yandex.ru/1.x/?ll=${lon},${lat}&z=16&l=map&lang=en_US&size=600,450&pt=${lon},${lat},pm2rdm`;
-                    
-                    img.style.width = '100%';
-                    img.style.height = '100%';
-                    img.style.objectFit = 'cover';
-                    img.style.border = '0';
-                    img.style.position = 'absolute';
-                    img.style.inset = '0';
-                    
-                    const parent = iframe.parentNode;
-                    if (parent) {
-                            const loadPromise = new Promise<void>((resolve) => {
-                                img.onload = () => resolve();
-                                img.onerror = () => resolve();
-                            });
-                        mapLoadPromises.push(loadPromise);
-                        parent.replaceChild(img, iframe);
-                    }
+                    (iframe as HTMLIFrameElement).src = `https://maps.google.com/maps?q=${lat},${lon}&z=16&output=embed&iwloc=0`;
+                    iframe.className = 'map-iframe';
                 }
             }
         });
-
-        if (mapLoadPromises.length > 0) {
-            await Promise.race([
-                Promise.all(mapLoadPromises),
-                new Promise(resolve => setTimeout(resolve, 5000))
-            ]);
-        }
 
         // Color conversion (oklch support)
         try {
@@ -590,27 +552,51 @@ export default function LayoutGenerator({
         `);
         doc.close();
 
-        // Wait for images in iframe
+        // Wait for all assets (images and map iframes) in the print document
         const imagesInIframe = Array.from(doc.querySelectorAll('img'));
-        await Promise.all(imagesInIframe.map(img => {
-            if (img.complete) return Promise.resolve();
-            return new Promise(resolve => { img.onload = resolve; img.onerror = resolve; });
-        }));
+        const mapsInIframe = Array.from(doc.querySelectorAll('.map-iframe')) as HTMLIFrameElement[];
+
+        const assetPromises: Promise<void>[] = [];
+
+        // Wait for images
+        imagesInIframe.forEach(img => {
+            if (img.complete) return;
+            assetPromises.push(new Promise(resolve => {
+                img.onload = () => resolve();
+                img.onerror = () => resolve();
+            }));
+        });
+
+        // Wait for map iframes
+        mapsInIframe.forEach(mIframe => {
+            assetPromises.push(new Promise(resolve => {
+                mIframe.onload = () => resolve();
+                mIframe.onerror = () => resolve();
+                // Safety timeout for each iframe
+                setTimeout(resolve, 5000);
+            }));
+        });
+
+        if (assetPromises.length > 0) {
+            await Promise.all(assetPromises);
+        }
+
+        // Additional buffer to let the Google Maps tiles actually render after iframe onload
+        await new Promise(resolve => setTimeout(resolve, 1500));
 
         // Print
+        if (iframe.contentWindow) {
+            iframe.contentWindow.focus();
+            iframe.contentWindow.print();
+        }
+
+        // Cleanup
         setTimeout(() => {
-            if (iframe.contentWindow) {
-                iframe.contentWindow.focus();
-                iframe.contentWindow.print();
-            }
-            // Cleanup
-            setTimeout(() => {
-                if (iframe.parentNode) document.body.removeChild(iframe);
-                if (cloned.parentNode) document.body.removeChild(cloned);
-                setIsExporting(false);
-                window.dispatchEvent(new CustomEvent("export-end"));
-            }, 1000);
-        }, 500);
+            if (iframe.parentNode) document.body.removeChild(iframe);
+            if (cloned.parentNode) document.body.removeChild(cloned);
+            setIsExporting(false);
+            window.dispatchEvent(new CustomEvent("export-end"));
+        }, 1000);
 
     } catch (error) {
         console.error("PDF Export failed:", error);
