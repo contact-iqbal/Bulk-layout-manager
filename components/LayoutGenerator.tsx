@@ -300,16 +300,111 @@ export default function LayoutGenerator({
           }
         }
 
-        // Prepare clone for transformation (must be in DOM for getComputedStyle to work)
-        cloned.style.position = "absolute";
-        cloned.style.left = "-9999px";
+        // Prepare clone for transformation
+        // We use a "warm-up" technique: place it in the DOM but hidden from view
+        // Using opacity instead of far-off-screen left/top ensures the browser 
+        // prioritizes rendering the iframes and their tiles.
+        cloned.style.position = "fixed";
+        cloned.style.left = "0";
         cloned.style.top = "0";
+        cloned.style.zIndex = "-100";
+        cloned.style.opacity = "0.01";
+        cloned.style.pointerEvents = "none";
         cloned.style.transform = "none";
-        cloned.style.width = "auto";
+        cloned.style.width = "2100px"; // Give it space to render
         cloned.style.height = "auto";
         cloned.style.overflow = "visible";
         
         document.body.appendChild(cloned);
+
+        // Convert Map containers and iframes to high-detail Google Maps for PDF
+        const mapLoadPromises: Promise<void>[] = [];
+
+        // 1. Convert data-map-coords containers (from MapPreview/Leaflet)
+        const mapContainers = cloned.querySelectorAll('[data-map-coords]');
+        mapContainers.forEach(container => {
+            const coords = (container as HTMLElement).dataset.mapCoords;
+            if (coords) {
+                const parts = coords.replace(/\s/g, "").split(",");
+                const lat = parts[0];
+                const lon = parts[1];
+                
+                if (lat && lon) {
+                    const wrapper = document.createElement('div');
+                    wrapper.style.position = 'relative';
+                    wrapper.style.width = '100%';
+                    wrapper.style.height = '100%';
+                    wrapper.style.overflow = 'hidden';
+
+                    // Google Maps Embed (Keyless trick)
+                    const iframe = document.createElement('iframe');
+                    iframe.src = `https://maps.google.com/maps?q=${lat},${lon}&z=16&output=embed&iwloc=0`;
+                    iframe.style.width = '100%';
+                    iframe.style.height = '100%';
+                    iframe.style.border = '0';
+                    iframe.style.position = 'absolute';
+                    iframe.style.inset = '0';
+                    iframe.className = 'map-iframe';
+                    iframe.setAttribute('loading', 'eager');
+                    
+                    // Custom Icon Overlay
+                    const icon = document.createElement('img');
+                    icon.src = '/assets/icon_maps.png';
+                    icon.style.position = 'absolute';
+                    icon.style.top = '50%';
+                    icon.style.left = '50%';
+                    icon.style.transform = 'translate(-50%, -100%)'; 
+                    icon.style.width = '32px';
+                    icon.style.height = '40px';
+                    icon.style.zIndex = '10';
+                    icon.style.pointerEvents = 'none';
+                    
+                    wrapper.appendChild(iframe);
+                    wrapper.appendChild(icon);
+                    
+                    container.innerHTML = '';
+                    container.appendChild(wrapper);
+
+                    // Track this iframe's loading
+                    mapLoadPromises.push(new Promise(resolve => {
+                        iframe.onload = () => resolve();
+                        iframe.onerror = () => resolve();
+                        setTimeout(resolve, 8000); // 8s safety timeout for slow networks
+                    }));
+                }
+            }
+        });
+
+        // 2. Fallback for other iframes
+        const existingIframes = cloned.querySelectorAll('iframe:not(.map-iframe)');
+        existingIframes.forEach(iframe => {
+            const src = (iframe as HTMLIFrameElement).src;
+            const match = src.match(/q=([-\d\.,]+)/);
+            if (match && match[1]) {
+                const coords = match[1].split(',');
+                if (coords.length === 2) {
+                    const lat = coords[0].trim();
+                    const lon = coords[1].trim();
+                    (iframe as HTMLIFrameElement).src = `https://maps.google.com/maps?q=${lat},${lon}&z=16&output=embed&iwloc=0`;
+                    iframe.className = 'map-iframe';
+                    iframe.setAttribute('loading', 'eager');
+                    
+                    mapLoadPromises.push(new Promise(resolve => {
+                        (iframe as HTMLIFrameElement).onload = () => resolve();
+                        (iframe as HTMLIFrameElement).onerror = () => resolve();
+                        setTimeout(resolve, 8000);
+                    }));
+                }
+            }
+        });
+
+        // Wait for all map iframes to report "loaded"
+        if (mapLoadPromises.length > 0) {
+            await Promise.all(mapLoadPromises);
+            // After iframe reports loaded, wait for the actual tile rendering
+            // This is the "warm-up" delay where the browser actually paints the tiles
+            await new Promise(resolve => setTimeout(resolve, 3000));
+        }
 
         // Transform inputs and textareas to text elements for better rendering
         const inputs = cloned.querySelectorAll('input, textarea');
@@ -347,74 +442,6 @@ export default function LayoutGenerator({
             }
 
             el.parentNode?.replaceChild(replacement, el);
-        });
-
-        // Convert Map containers and iframes to high-detail Google Maps for PDF
-        const mapLoadPromises: Promise<void>[] = [];
-
-        // 1. Convert data-map-coords containers (from MapPreview/Leaflet)
-        const mapContainers = cloned.querySelectorAll('[data-map-coords]');
-        mapContainers.forEach(container => {
-            const coords = (container as HTMLElement).dataset.mapCoords;
-            if (coords) {
-                const parts = coords.replace(/\s/g, "").split(",");
-                const lat = parts[0];
-                const lon = parts[1];
-                
-                if (lat && lon) {
-                    const wrapper = document.createElement('div');
-                    wrapper.style.position = 'relative';
-                    wrapper.style.width = '100%';
-                    wrapper.style.height = '100%';
-                    wrapper.style.overflow = 'hidden';
-
-                    // Google Maps Embed (Keyless trick)
-                    const iframe = document.createElement('iframe');
-                    // output=embed is the key for high detail without API key
-                    iframe.src = `https://maps.google.com/maps?q=${lat},${lon}&z=16&output=embed&iwloc=0`;
-                    iframe.style.width = '100%';
-                    iframe.style.height = '100%';
-                    iframe.style.border = '0';
-                    iframe.style.position = 'absolute';
-                    iframe.style.inset = '0';
-                    iframe.className = 'map-iframe'; // for easier identification later
-                    
-                    // Custom Icon Overlay (keeping it centered)
-                    const icon = document.createElement('img');
-                    icon.src = '/assets/icon_maps.png';
-                    icon.style.position = 'absolute';
-                    icon.style.top = '50%';
-                    icon.style.left = '50%';
-                    icon.style.transform = 'translate(-50%, -100%)'; 
-                    icon.style.width = '32px';
-                    icon.style.height = '40px';
-                    icon.style.zIndex = '10';
-                    icon.style.pointerEvents = 'none';
-                    
-                    wrapper.appendChild(iframe);
-                    wrapper.appendChild(icon);
-                    
-                    container.innerHTML = '';
-                    container.appendChild(wrapper);
-                }
-            }
-        });
-
-        // 2. Fallback: Convert any existing iframes to the same high-detail version
-        const existingIframes = cloned.querySelectorAll('iframe:not(.map-iframe)');
-        existingIframes.forEach(iframe => {
-            const src = (iframe as HTMLIFrameElement).src;
-            const match = src.match(/q=([-\d\.,]+)/);
-            
-            if (match && match[1]) {
-                const coords = match[1].split(',');
-                if (coords.length === 2) {
-                    const lat = coords[0].trim();
-                    const lon = coords[1].trim();
-                    (iframe as HTMLIFrameElement).src = `https://maps.google.com/maps?q=${lat},${lon}&z=16&output=embed&iwloc=0`;
-                    iframe.className = 'map-iframe';
-                }
-            }
         });
 
         // Color conversion (oklch support)
@@ -552,7 +579,7 @@ export default function LayoutGenerator({
         `);
         doc.close();
 
-        // Wait for all assets (images and map iframes) in the print document
+        // Wait for all assets in the print document
         const imagesInIframe = Array.from(doc.querySelectorAll('img'));
         const mapsInIframe = Array.from(doc.querySelectorAll('.map-iframe')) as HTMLIFrameElement[];
 
@@ -567,13 +594,13 @@ export default function LayoutGenerator({
             }));
         });
 
-        // Wait for map iframes
+        // Wait for map iframes in the print document
+        // Since we already "warmed them up" in the main DOM, this should be fast
         mapsInIframe.forEach(mIframe => {
             assetPromises.push(new Promise(resolve => {
                 mIframe.onload = () => resolve();
                 mIframe.onerror = () => resolve();
-                // Safety timeout for each iframe
-                setTimeout(resolve, 5000);
+                setTimeout(resolve, 3000); 
             }));
         });
 
@@ -581,8 +608,8 @@ export default function LayoutGenerator({
             await Promise.all(assetPromises);
         }
 
-        // Additional buffer to let the Google Maps tiles actually render after iframe onload
-        await new Promise(resolve => setTimeout(resolve, 1500));
+        // Final rendering buffer
+        await new Promise(resolve => setTimeout(resolve, 1000));
 
         // Print
         if (iframe.contentWindow) {
