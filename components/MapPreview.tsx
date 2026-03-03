@@ -37,6 +37,7 @@ export default function MapPreview({ coords, className }: MapPreviewProps) {
     <div
       className={`w-full h-full relative ${className ?? ""}`}
       style={{ minHeight: "160px" }}
+      data-map-coords={coords}
     >
       <LeafletMapInner lat={lat} lng={lng} />
     </div>

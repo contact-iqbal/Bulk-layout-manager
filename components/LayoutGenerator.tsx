@@ -20,7 +20,6 @@ import {
 import useHistory from "@/hooks/useHistory";
 import Ruler from "@/components/Ruler";
 import html2canvas from "html2canvas";
-import jsPDF from "jspdf";
 import JSZip from "jszip";
 import Swal from "sweetalert2";
 
@@ -242,7 +241,7 @@ export default function LayoutGenerator({
 
   // --- Handlers ---
 
-  // PDF Export Handler
+  // PDF Export Handler (via Invisible Iframe & window.print)
   const handleDownloadPDF = async (pageRange?: string) => {
     if (!contentRef.current) return;
     setIsExporting(true);
@@ -301,11 +300,10 @@ export default function LayoutGenerator({
           }
         }
 
-        // Prepare clone for rendering
+        // Prepare clone for transformation (must be in DOM for getComputedStyle to work)
         cloned.style.position = "absolute";
         cloned.style.left = "-9999px";
         cloned.style.top = "0";
-        // Reset zoom/transform on the container
         cloned.style.transform = "none";
         cloned.style.width = "auto";
         cloned.style.height = "auto";
@@ -322,45 +320,103 @@ export default function LayoutGenerator({
             const replacement = document.createElement('div');
             replacement.textContent = el.value;
             
-            // Copy relevant styles
+            // Copy relevant styles and force top-left alignment
             replacement.style.fontFamily = style.fontFamily;
             replacement.style.fontSize = style.fontSize;
             replacement.style.fontWeight = style.fontWeight;
             replacement.style.color = style.color;
-            replacement.style.textAlign = style.textAlign;
+            replacement.style.textAlign = 'left'; // Force left alignment
+            replacement.style.verticalAlign = 'top'; // Force top alignment
             replacement.style.lineHeight = style.lineHeight;
             replacement.style.textTransform = style.textTransform;
             replacement.style.letterSpacing = style.letterSpacing;
-            replacement.style.whiteSpace = 'pre-wrap'; // Preserve line breaks for textareas
+            replacement.style.whiteSpace = 'pre-wrap';
             replacement.style.wordBreak = 'break-word';
             replacement.style.display = 'inline-block';
-            replacement.style.width = style.width; // Maintain width if set
+            replacement.style.width = style.width;
             
-            // Remove border/background to look like clean text
             replacement.style.border = 'none';
             replacement.style.background = 'transparent';
             replacement.style.padding = style.padding;
             replacement.style.margin = style.margin;
 
             if (el.tagName.toLowerCase() === 'textarea') {
-                replacement.style.display = 'block'; // Textareas usually block or inline-block behaving like block
-                replacement.style.height = 'auto'; // Let it grow
+                replacement.style.display = 'inline-block';
+                replacement.style.height = 'auto';
                 replacement.style.minHeight = style.height;
             }
 
             el.parentNode?.replaceChild(replacement, el);
         });
 
-        // Convert Google Maps iframes to static images
-        // Since html2canvas cannot capture cross-origin iframes, we replace them with static map images
-        // We use Yandex Static Maps as a free fallback that doesn't require an API key for basic usage
-        const mapIframes = cloned.querySelectorAll('iframe');
+        // Convert Map containers and iframes to static images for perfect centering in PDF
         const mapLoadPromises: Promise<void>[] = [];
 
+        // 1. Convert data-map-coords containers (from MapPreview/Leaflet)
+        const mapContainers = cloned.querySelectorAll('[data-map-coords]');
+        mapContainers.forEach(container => {
+            const coords = (container as HTMLElement).dataset.mapCoords;
+            if (coords) {
+                const parts = coords.replace(/\s/g, "").split(",");
+                const lat = parts[0];
+                const lon = parts[1];
+                
+                if (lat && lon) {
+                    // Wrapper for positioning the custom icon
+                    const wrapper = document.createElement('div');
+                    wrapper.style.position = 'relative';
+                    wrapper.style.width = '100%';
+                    wrapper.style.height = '100%';
+                    wrapper.style.overflow = 'hidden';
+
+                    // Static map image (No marker pt parameter)
+                    const img = document.createElement('img');
+                    img.crossOrigin = "anonymous";
+                    img.src = `https://static-maps.yandex.ru/1.x/?ll=${lon},${lat}&z=16&l=map&lang=en_US&size=600,450`;
+                    
+                    img.style.width = '100%';
+                    img.style.height = '100%';
+                    img.style.objectFit = 'cover';
+                    img.style.display = 'block';
+                    
+                    // Custom Icon Overlay (matching LeafletMapInner style)
+                    const icon = document.createElement('img');
+                    icon.src = '/assets/icon_maps.png';
+                    icon.style.position = 'absolute';
+                    icon.style.top = '50%';
+                    icon.style.left = '50%';
+                    // translate(-50%, -100%) because the anchor is at the bottom-center [16, 40]
+                    icon.style.transform = 'translate(-50%, -100%)'; 
+                    icon.style.width = '32px';
+                    icon.style.height = '40px';
+                    icon.style.zIndex = '10';
+                    
+                    const loadPromise = new Promise<void>((resolve) => {
+                        let loaded = 0;
+                        const check = () => {
+                            loaded++;
+                            if (loaded === 2) resolve();
+                        };
+                        img.onload = check;
+                        img.onerror = check;
+                        icon.onload = check;
+                        icon.onerror = check;
+                    });
+                    mapLoadPromises.push(loadPromise);
+                    
+                    wrapper.appendChild(img);
+                    wrapper.appendChild(icon);
+                    
+                    container.innerHTML = '';
+                    container.appendChild(wrapper);
+                }
+            }
+        });
+
+        // 2. Fallback: Convert any Google Maps iframes
+        const mapIframes = cloned.querySelectorAll('iframe');
         mapIframes.forEach(iframe => {
             const src = iframe.src;
-            // Extract coordinates from Google Maps Embed URL
-            // Format: https://www.google.com/maps?q=-6.9165,107.5913&...
             const match = src.match(/q=([-\d\.,]+)/);
             
             if (match && match[1]) {
@@ -368,18 +424,10 @@ export default function LayoutGenerator({
                 if (coords.length === 2) {
                     const lat = coords[0].trim();
                     const lon = coords[1].trim();
-
                     const img = document.createElement('img');
-                    img.crossOrigin = "anonymous"; // Important for html2canvas
-                    
-                    // Using Yandex Static Maps API (free, reliable, no key for basic use)
-                    // Note: Yandex uses lon,lat order. Google uses lat,lon.
-                    // l=map: Vector map layer (colorful, like Google Maps default)
-                    // lang=en_US: Ensure labels are in Latin/English, not Russian
-                    // pt parameter adds a marker
+                    img.crossOrigin = "anonymous";
                     img.src = `https://static-maps.yandex.ru/1.x/?ll=${lon},${lat}&z=16&l=map&lang=en_US&size=600,450&pt=${lon},${lat},pm2rdm`;
                     
-                    // Copy styles to match iframe
                     img.style.width = '100%';
                     img.style.height = '100%';
                     img.style.objectFit = 'cover';
@@ -391,264 +439,182 @@ export default function LayoutGenerator({
                     if (parent) {
                             const loadPromise = new Promise<void>((resolve) => {
                                 img.onload = () => resolve();
-                                img.onerror = () => {
-                                    // Fallback if image fails (e.g. rate limit or network)
-                                    console.warn("Failed to load static map image");
-                                    // Create a placeholder
-                                    const placeholder = document.createElement('div');
-                                    placeholder.style.width = '100%';
-                                    placeholder.style.height = '100%';
-                                    placeholder.style.display = 'flex';
-                                    placeholder.style.alignItems = 'center';
-                                    placeholder.style.justifyContent = 'center';
-                                    placeholder.style.backgroundColor = '#f0f0f0';
-                                    placeholder.style.color = '#666';
-                                    placeholder.style.fontSize = '12px';
-                                    // Use lat/lon from closure
-                                    placeholder.innerHTML = `<div style="text-align:center">Map Preview<br/>${lat}, ${lon}</div>`;
-                                    
-                                    if (img.parentNode) {
-                                        img.parentNode.replaceChild(placeholder, img);
-                                    }
-                                    resolve();
-                                };
+                                img.onerror = () => resolve();
                             });
                         mapLoadPromises.push(loadPromise);
-                        
                         parent.replaceChild(img, iframe);
                     }
                 }
             }
         });
 
-        // Wait for all map images to load (with timeout)
         if (mapLoadPromises.length > 0) {
             await Promise.race([
                 Promise.all(mapLoadPromises),
-                new Promise(resolve => setTimeout(resolve, 5000)) // 5s timeout
+                new Promise(resolve => setTimeout(resolve, 5000))
             ]);
         }
 
-        // Fix object-fit: cover for images (html2canvas issue)
-        const images = cloned.querySelectorAll('img');
-        images.forEach(img => {
-            const style = window.getComputedStyle(img);
-            if (style.objectFit === 'cover') {
-                const div = document.createElement('div');
-                div.style.width = style.width || '100%';
-                div.style.height = style.height || '100%';
-                div.style.backgroundImage = `url("${img.src}")`;
-                div.style.backgroundSize = 'cover';
-                div.style.backgroundPosition = 'center';
-                div.style.borderRadius = style.borderRadius;
-                div.style.border = style.border;
-                div.style.boxShadow = style.boxShadow;
-                div.style.position = style.position;
-                div.style.top = style.top;
-                div.style.left = style.left;
-                div.style.right = style.right;
-                div.style.bottom = style.bottom;
-                div.style.zIndex = style.zIndex;
-                div.style.margin = style.margin;
-                div.style.display = style.display;
-                div.style.transform = style.transform;
-                
-                img.parentNode?.replaceChild(div, img);
-            }
-        });
-
-        // Fix for "unsupported color function oklch/oklab" error in html2canvas
-        // Tailwind CSS v4 uses oklch by default, which html2canvas doesn't support yet.
-        // We traverse the cloned DOM and convert any oklch/oklab colors to RGB using a canvas context.
+        // Color conversion (oklch support)
         try {
             const canvas = document.createElement('canvas');
             canvas.width = 1;
             canvas.height = 1;
             const ctx = canvas.getContext('2d', { willReadFrequently: true });
-            
             if (ctx) {
-                // Helper to convert color string to hex/rgba using canvas
                 const convertColor = (colorStr: string): string | null => {
                     try {
                         ctx.clearRect(0, 0, 1, 1);
-                        // Default to black if invalid, so we check if it changes
-                        ctx.fillStyle = '#000000'; 
-                        ctx.fillRect(0, 0, 1, 1);
-                        
+                        ctx.fillStyle = '#000000'; ctx.fillRect(0, 0, 1, 1);
                         ctx.fillStyle = colorStr;
-                        // If browser doesn't understand colorStr, fillStyle won't change (usually)
-                        // But let's just draw
-                        ctx.clearRect(0, 0, 1, 1);
-                        ctx.fillRect(0, 0, 1, 1);
-                        
+                        ctx.clearRect(0, 0, 1, 1); ctx.fillRect(0, 0, 1, 1);
                         const data = ctx.getImageData(0, 0, 1, 1).data;
                         return `rgba(${data[0]}, ${data[1]}, ${data[2]}, ${data[3] / 255})`;
-                    } catch (e) {
-                        return null;
-                    }
+                    } catch (e) { return null; }
                 };
-
                 const elements = [cloned, ...Array.from(cloned.querySelectorAll('*'))] as HTMLElement[];
-                
-                // Properties that might contain colors
-                // We check computed styles
-                const colorProps = [
-                    'color', 
-                    'backgroundColor', 
-                    'borderColor', 
-                    'borderTopColor', 
-                    'borderRightColor', 
-                    'borderBottomColor', 
-                    'borderLeftColor',
-                    'outlineColor',
-                    'textDecorationColor',
-                    'fill',
-                    'stroke'
-                ];
-
-                // Complex properties that might contain colors mixed with other things
+                const colorProps = ['color', 'backgroundColor', 'borderColor', 'borderTopColor', 'borderRightColor', 'borderBottomColor', 'borderLeftColor', 'outlineColor', 'textDecorationColor', 'fill', 'stroke'];
                 const complexProps = ['boxShadow', 'textShadow', 'backgroundImage'];
-
                 elements.forEach(el => {
                     const style = window.getComputedStyle(el);
-                    
-                    // Handle simple color properties
                     colorProps.forEach(prop => {
                         const val = style.getPropertyValue(prop.replace(/[A-Z]/g, m => `-${m.toLowerCase()}`));
                         if (val && (val.includes('oklch') || val.includes('oklab') || val.includes('lab(') || val.includes('lch('))) {
                              const converted = convertColor(val);
-                             if (converted) {
-                                 (el.style as any)[prop] = converted;
-                             }
+                             if (converted) (el.style as any)[prop] = converted;
                         }
                     });
-
-                    // Handle complex properties (shadows, gradients)
-                    // We use regex to find oklch(...) or okllab(...) patterns
                     complexProps.forEach(prop => {
                         const val = style.getPropertyValue(prop.replace(/[A-Z]/g, m => `-${m.toLowerCase()}`));
                          if (val && (val.includes('oklch') || val.includes('oklab') || val.includes('lab(') || val.includes('lch('))) {
-                             // Replace all occurrences
                              const newVal = val.replace(/(oklch|oklab|lab|lch)\([^)]+\)/g, (match) => {
                                  const converted = convertColor(match);
                                  return converted || match;
                              });
-                             if (newVal !== val) {
-                                 (el.style as any)[prop] = newVal;
-                             }
+                             if (newVal !== val) (el.style as any)[prop] = newVal;
                          }
                     });
                 });
             }
-        } catch (e) {
-            console.warn("Color conversion failed", e);
-        }
+        } catch (e) { console.warn("Color conversion failed", e); }
 
-        // Get wrappers from the CLONED container
-        const wrappers = cloned.querySelectorAll(".layout-card-wrapper");
-        
-        if (wrappers.length === 0) {
-            document.body.removeChild(cloned);
-            setIsExporting(false);
-            window.dispatchEvent(new CustomEvent("export-end"));
-            return;
-        }
-
-        // Initialize PDF
-        const isF4 = settings.paperSize === "f4";
-        // F4: 215 x 330 mm (Landscape) -> 330 x 215
-        // A4: 210 x 297 mm (Landscape) -> 297 x 210
-        const format = isF4 ? [330, 215] : "a4";
-        
-        const pdf = new jsPDF({
-            orientation: "landscape",
-            unit: "mm",
-            format: format,
-            compress: true
+        // Create invisible iframe for printing
+        const iframe = document.createElement('iframe');
+        Object.assign(iframe.style, {
+            position: 'fixed', right: '0', bottom: '0', width: '0', height: '0', border: '0', visibility: 'hidden'
         });
+        iframe.setAttribute('title', 'Print Frame');
+        document.body.appendChild(iframe);
 
-        const pdfWidth = pdf.internal.pageSize.getWidth();
-        const pdfHeight = pdf.internal.pageSize.getHeight();
+        const doc = iframe.contentWindow?.document;
+        if (!doc) throw new Error("Could not access iframe document");
 
-        // Process each card
-        for (let i = 0; i < wrappers.length; i++) {
-            const wrapper = wrappers[i] as HTMLElement;
-            
-            // Set fixed dimensions for capture to match paper aspect ratio/size
-            const wMM = isF4 ? 330 : 297;
-            const hMM = isF4 ? 215 : 210;
-            
-            // 1mm = 3.7795px
-            // Use 2x scale for better quality
-            const pixelWidth = Math.ceil(wMM * 3.7795);
-            const pixelHeight = Math.ceil(hMM * 3.7795);
-            
-            wrapper.style.width = `${pixelWidth}px`;
-            wrapper.style.height = `${pixelHeight}px`;
-            wrapper.style.margin = "0";
-            wrapper.style.padding = "0";
-            wrapper.style.boxSizing = "border-box";
-            wrapper.style.backgroundColor = "white";
-            
-            // Force fixed positioning to top-left to avoid scroll offsets
-            wrapper.style.position = "fixed";
-            wrapper.style.top = "0";
-            wrapper.style.left = "0";
-            wrapper.style.zIndex = "10000";
-            
-            // Ensure internal card fills
-            const card = wrapper.querySelector(".layout-card") as HTMLElement;
-            if (card) {
-                card.style.width = "100%";
-                card.style.height = "100%";
-                card.style.transform = "none";
-                card.style.boxShadow = "none";
-                card.style.border = "none";
+        // Copy styles
+        const styles = Array.from(document.querySelectorAll('style, link[rel="stylesheet"]'))
+            .map(el => el.outerHTML).join('\n');
+
+        const isF4 = settings.paperSize === "f4";
+        const pageSize = isF4 ? "215mm 330mm landscape" : "A4 landscape";
+
+        doc.open();
+        doc.write(`
+            <!DOCTYPE html>
+            <html>
+            <head>
+                <meta charset="utf-8">
+                <title>${tabTitle || "Layout"}</title>
+                ${styles}
+                <style>
+                    @page { size: ${pageSize}; margin: 0; }
+                    html, body { margin: 0; padding: 0; background: white; -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
+                    #print-container { width: 100%; height: 100%; }
+                    .layout-card-wrapper {
+                        width: ${isF4 ? '330mm' : '297mm'} !important;
+                        height: ${isF4 ? '215mm' : '210mm'} !important;
+                        page-break-after: always; break-after: page;
+                        margin: 0 !important; box-shadow: none !important; border: none !important;
+                        overflow: hidden !important; position: relative !important;
+                        display: block !important;
+                    }
+                    .print-page {
+                        width: 100% !important;
+                        height: 100% !important;
+                        display: flex !important;
+                        flex-direction: column !important;
+                        box-sizing: border-box !important;
+                        padding: 16px 32px !important;
+                    }
+                    .print-media-row {
+                        flex: 1 !important;
+                        height: auto !important;
+                        max-height: none !important;
+                        display: flex !important;
+                        margin-bottom: 16px !important;
+                    }
+                    .print-img-col {
+                        flex: 2 !important;
+                        height: 100% !important;
+                        width: auto !important;
+                        position: relative !important;
+                    }
+                    .print-map-col {
+                        flex: 1 !important;
+                        height: 100% !important;
+                        width: auto !important;
+                        display: flex !important;
+                        flex-direction: column !important;
+                    }
+                    .print-img-col img, .leaflet-map-container, .leaflet-container {
+                        width: 100% !important;
+                        height: 100% !important;
+                        object-fit: cover !important;
+                    }
+                    .leaflet-map-container { position: relative !important; }
+                    .print-info-row { flex-shrink: 0 !important; }
+                    * { zoom: 1 !important; }
+                    #cards-container { 
+                        display: block !important; 
+                        grid: none !important; 
+                        gap: 0 !important; 
+                        width: 100% !important; 
+                        transform: none !important; 
+                    }
+                </style>
+            </head>
+            <body>
+                <div id="print-container">
+                    ${cloned.innerHTML}
+                </div>
+            </body>
+            </html>
+        `);
+        doc.close();
+
+        // Wait for images in iframe
+        const imagesInIframe = Array.from(doc.querySelectorAll('img'));
+        await Promise.all(imagesInIframe.map(img => {
+            if (img.complete) return Promise.resolve();
+            return new Promise(resolve => { img.onload = resolve; img.onerror = resolve; });
+        }));
+
+        // Print
+        setTimeout(() => {
+            if (iframe.contentWindow) {
+                iframe.contentWindow.focus();
+                iframe.contentWindow.print();
             }
-            
-             const cardRoot = wrapper.firstElementChild as HTMLElement;
-             if (cardRoot) {
-                 cardRoot.style.width = "100%";
-                 cardRoot.style.height = "100%";
-                 cardRoot.style.boxShadow = "none"; 
-                 cardRoot.style.border = "none"; 
-             }
-
-            // Render
-            const canvas = await html2canvas(wrapper, {
-                scale: 2, 
-                useCORS: true,
-                logging: false,
-                backgroundColor: "#ffffff",
-                width: pixelWidth,
-                height: pixelHeight,
-                windowWidth: pixelWidth,
-                windowHeight: pixelHeight,
-                scrollX: 0,
-                scrollY: 0,
-                x: 0,
-                y: 0
-            } as any);
-
-            const imgData = canvas.toDataURL("image/jpeg", 0.95);
-            
-            if (i > 0) pdf.addPage();
-            
-            pdf.addImage(imgData, "JPEG", 0, 0, pdfWidth, pdfHeight);
-        }
-
-        pdf.save(`${tabTitle.replace(/[^a-z0-9\s-_]/gi, "").trim() || "Layout"}.pdf`);
-        document.body.removeChild(cloned);
+            // Cleanup
+            setTimeout(() => {
+                if (iframe.parentNode) document.body.removeChild(iframe);
+                if (cloned.parentNode) document.body.removeChild(cloned);
+                setIsExporting(false);
+                window.dispatchEvent(new CustomEvent("export-end"));
+            }, 1000);
+        }, 500);
 
     } catch (error) {
         console.error("PDF Export failed:", error);
-        Swal.fire({
-          icon: "error",
-          title: "Gagal",
-          text: "Gagal mengekspor PDF.",
-          confirmButtonColor: "#dc2626",
-        });
-    } finally {
+        Swal.fire({ icon: "error", title: "Gagal", text: "Gagal mengekspor PDF.", confirmButtonColor: "#dc2626" });
         setIsExporting(false);
         window.dispatchEvent(new CustomEvent("export-end"));
     }
